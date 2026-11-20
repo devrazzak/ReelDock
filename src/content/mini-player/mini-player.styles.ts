@@ -19,7 +19,7 @@ html, body { margin: 0; height: 100%; background: #000; overflow: hidden; font-f
     border: 3px solid rgb(255 255 255 / 0.25); border-top-color: #fff; border-radius: 50%;
     animation: spin 800ms linear infinite; display: none; pointer-events: none;
 }
-.player.busy .spinner { display: block; }
+.player.busy .spinner, .player.buffering .spinner { display: block; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
 .paused-icon {
@@ -28,12 +28,11 @@ html, body { margin: 0; height: 100%; background: #000; overflow: hidden; font-f
     display: none; place-items: center; pointer-events: none;
 }
 .paused-icon svg { width: 32px; height: 32px; }
-.player.paused:not(.busy) .paused-icon { display: grid; }
+.player.paused:not(.busy):not(:hover) .paused-icon { display: grid; }
 
-.controls {
-    position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
-    display: flex; flex-direction: column; gap: 10px; opacity: 0; transition: opacity 150ms ease;
-}
+.controls { position: absolute; display: flex; gap: 10px; opacity: 0; transition: opacity 150ms ease; }
+.controls.side { right: 10px; top: 50%; transform: translateY(-50%); flex-direction: column; }
+.controls.bottom { left: 50%; bottom: 18px; transform: translateX(-50%); align-items: center; gap: 16px; }
 .player:hover .controls, .controls:focus-within { opacity: 1; }
 
 button {
@@ -43,6 +42,8 @@ button {
 button:hover { background: rgb(0 0 0 / 0.8); }
 button:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
 svg { width: 22px; height: 22px; fill: currentColor; }
+button.large { width: 52px; height: 52px; }
+button.large svg { width: 28px; height: 28px; }
 
 .progress { position: absolute; left: 0; right: 0; bottom: 0; height: 3px; background: rgb(255 255 255 / 0.25); }
 .progress-bar { height: 100%; width: 0; background: #fff; }

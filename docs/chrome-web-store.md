@@ -28,7 +28,7 @@ Watch Facebook Reels while you work.
 • Background playback – switch to any other tab and the Reel keeps playing.
 • Auto next – when a Reel ends, the next one starts by itself, even in the background.
 • Mini player – a floating, always-on-top window you can move and resize anywhere on your screen.
-  Scroll, drag, or use the arrow keys to go to the next or previous Reel.
+  Scroll, drag, or use the arrow keys to go to the next or previous Reel, and skip 10 seconds back or forward.
 • Popup controls – play/pause, previous, next, and live status.
 • Keyboard shortcuts – play/pause, next Reel, and toggles (customisable in chrome://extensions/shortcuts).
 

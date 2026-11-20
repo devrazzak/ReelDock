@@ -92,6 +92,15 @@ export class CdpSession {
         }
     }
 
+    /** Key press; arrow keys need their Windows virtual key code to reach the page. */
+    async press(key, code) {
+        const keyCodes = { ArrowLeft: 37, ArrowUp: 38, ArrowRight: 39, ArrowDown: 40, m: 77 };
+        const windowsVirtualKeyCode = keyCodes[key];
+        for (const type of ['rawKeyDown', 'keyUp']) {
+            await this.send('Input.dispatchKeyEvent', { type, key, code, windowsVirtualKeyCode });
+        }
+    }
+
     wheel(x, y, deltaY) {
         return this.send('Input.dispatchMouseEvent', { type: 'mouseWheel', x, y, deltaX: 0, deltaY });
     }

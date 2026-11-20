@@ -62,6 +62,8 @@ export interface FakeReelsPage {
     autoplayOnNavigate: boolean;
     /** When true, clicking Next does nothing, like a broken page. */
     brokenNavigation: boolean;
+    /** Facebook's own mute state, changed only by its Mute / Unmute button and applied to every new Reel. */
+    facebookMuted: boolean;
 }
 
 export function createFakeReelsPage(doc: Document, reelIds: string[], options: FakeVideoOptions = {}): FakeReelsPage {
@@ -85,6 +87,7 @@ export function createFakeReelsPage(doc: Document, reelIds: string[], options: F
         nextClicks: 0,
         autoplayOnNavigate: false,
         brokenNavigation: false,
+        facebookMuted: true,
     };
 
     const goTo = (index: number) => {
@@ -92,7 +95,13 @@ export function createFakeReelsPage(doc: Document, reelIds: string[], options: F
         if (id === undefined) return;
         view.history.pushState({}, '', `/reel/${id}`);
         navigation.dispatchEvent(new Event('navigatesuccess'));
-        if (page.autoplayOnNavigate) void videos[index]?.play();
+        if (!page.autoplayOnNavigate) return;
+        // Like Facebook in a visible tab: it starts the new Reel and shortly after applies its own mute state.
+        void videos[index]?.play();
+        setTimeout(() => {
+            const video = videos[index];
+            if (video) video.muted = page.facebookMuted;
+        }, 30);
     };
     const currentIndex = () => reelIds.findIndex(id => view.location.pathname === `/reel/${id}`);
 
@@ -108,7 +117,17 @@ export function createFakeReelsPage(doc: Document, reelIds: string[], options: F
     previousButton.setAttribute('aria-label', 'Previous Card');
     previousButton.addEventListener('click', () => goTo(currentIndex() - 1));
 
-    doc.body.append(page.nextButton, previousButton);
+    const muteButton = doc.createElement('div');
+    muteButton.setAttribute('role', 'button');
+    muteButton.setAttribute('aria-label', 'Unmute');
+    muteButton.addEventListener('click', () => {
+        page.facebookMuted = !page.facebookMuted;
+        muteButton.setAttribute('aria-label', page.facebookMuted ? 'Unmute' : 'Mute');
+        const current = videos[currentIndex()];
+        if (current) current.muted = page.facebookMuted;
+    });
+
+    doc.body.append(page.nextButton, previousButton, muteButton);
     view.history.replaceState({}, '', `/reel/${reelIds[0]}`);
     return page;
 }

@@ -1,4 +1,4 @@
-import { Badge, Text } from '@rax-ds/ui';
+import { Badge, Spinner, Text } from '@rax-ds/ui';
 
 import type { PlayerCommand } from '@/shared/messages';
 import type { PlaybackStatus, VideoState } from '@/shared/status';
@@ -27,9 +27,12 @@ export function NowPlaying({ status, onCommand }: NowPlayingProps) {
                 <Text size="xs" color="muted" textTransform="uppercase" tracking="wide">
                     Now playing
                 </Text>
-                <Text size="lg" weight="semibold" role="status">
-                    {label}
-                </Text>
+                <div className="flex items-center gap-2" role="status">
+                    {(status.navigating || status.videoState === 'loading') && <Spinner size="sm" aria-hidden="true" />}
+                    <Text as="span" size="lg" weight="semibold">
+                        {label}
+                    </Text>
+                </div>
                 <div className="flex min-h-5 flex-wrap justify-center gap-1.5">
                     {status.tabHidden && (
                         <Badge size="sm" variant="secondary">

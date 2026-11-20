@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { findNavigationButton, findReelVideo } from '@/content/reels/reel-dom';
+import { findMuteButton, findNavigationButton, findReelVideo } from '@/content/reels/reel-dom';
 import { findActiveVideo } from '@/content/video/active-video';
 
 function stubRect(element: Element, top: number, height: number): void {
@@ -52,5 +52,17 @@ describe('findActiveVideo', () => {
     it('returns null without videos', () => {
         document.body.innerHTML = '';
         expect(findActiveVideo(document)).toBeNull();
+    });
+});
+
+describe('findMuteButton', () => {
+    it("prefers the current card's button and ignores the image with the same label", () => {
+        document.body.innerHTML = `
+            <div data-video-id="111"><div role="button" aria-label="Unmute" id="other"></div></div>
+            <div data-video-id="222">
+                <div role="img" aria-label="Unmute"></div>
+                <div role="button" aria-label="Mute" id="current"></div>
+            </div>`;
+        expect(findMuteButton(document, '222')?.id).toBe('current');
     });
 });

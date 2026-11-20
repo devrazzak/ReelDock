@@ -3,7 +3,7 @@ import { IconButton } from '@rax-ds/ui';
 import type { PlayerCommand } from '@/shared/messages';
 import type { PlaybackStatus } from '@/shared/status';
 
-import { NextIcon, PauseIcon, PlayIcon, PreviousIcon } from './icons';
+import { BackTenIcon, ForwardTenIcon, NextIcon, PauseIcon, PlayIcon, PreviousIcon } from './icons';
 
 interface PlayerControlsProps {
     status: PlaybackStatus;
@@ -13,9 +13,20 @@ interface PlayerControlsProps {
 export function PlayerControls({ status, onCommand }: PlayerControlsProps) {
     const navigationDisabled = !status.onReelsPage || status.navigating;
     const isPlaying = status.videoState === 'playing' || status.videoState === 'loading';
+    const seekDisabled = !status.onReelsPage || status.videoState === 'none';
 
     return (
-        <div className="flex items-center justify-center gap-4">
+        <div className="flex items-center justify-center gap-2">
+            <IconButton
+                label="Back 10 seconds"
+                variant="ghost"
+                size="sm"
+                rounded="full"
+                disabled={seekDisabled}
+                onClick={() => onCommand('seek-backward')}
+            >
+                <BackTenIcon className="size-6" />
+            </IconButton>
             <IconButton
                 label="Previous Reel"
                 variant="outline"
@@ -45,6 +56,16 @@ export function PlayerControls({ status, onCommand }: PlayerControlsProps) {
                 onClick={() => onCommand('next-reel')}
             >
                 <NextIcon className="size-6" />
+            </IconButton>
+            <IconButton
+                label="Forward 10 seconds"
+                variant="ghost"
+                size="sm"
+                rounded="full"
+                disabled={seekDisabled}
+                onClick={() => onCommand('seek-forward')}
+            >
+                <ForwardTenIcon className="size-6" />
             </IconButton>
         </div>
     );

@@ -5,6 +5,9 @@ import type { VideoStage } from '@/content/session/reel-session';
 export interface MiniPlayerHandlers {
     onNavigate: (direction: Direction) => Promise<void>;
     onTogglePlay: () => void;
+    /** Mutes through Facebook's own button, so the choice carries over to the next Reels. */
+    onToggleMute: () => void;
+    onSeek: (direction: 'forward' | 'backward') => void;
     /** Called with the mini player's document so media events inside it can be observed. */
     onOpen: (pipDocument: Document) => void;
     onClose: () => void;
@@ -26,6 +29,9 @@ const ICONS = {
     muted: '<path d="M4 9v6h4l5 4V5L8 9zm16.6 3 2.1-2.1-1.4-1.4-2.1 2.1-2.1-2.1-1.4 1.4 2.1 2.1-2.1 2.1 1.4 1.4 2.1-2.1 2.1 2.1 1.4-1.4z"/>',
     play: '<path d="M8 5v14l11-7z"/>',
     pause: '<path d="M6 5h4v14H6zm8 0h4v14h-4z"/>',
+    back10: '<path d="M12 5V1L7 6l5 5V7a6 6 0 1 1-6 6H4a8 8 0 1 0 8-8z"/><text x="12" y="16.5" font-size="7" font-weight="700" text-anchor="middle" font-family="system-ui,sans-serif">10</text>',
+    forward10:
+        '<path d="M12 5V1l5 5-5 5V7a6 6 0 1 0 6 6h2a8 8 0 1 1-8-8z"/><text x="12" y="16.5" font-size="7" font-weight="700" text-anchor="middle" font-family="system-ui,sans-serif">10</text>',
 };
 
 /**
@@ -182,18 +188,17 @@ export class MiniPlayer implements VideoStage {
         this.elements?.player.classList.toggle('busy', busy);
     }
 
-    private toggleMute(): void {
-        const video = this.video;
-        if (!video) return;
-        video.muted = !video.muted;
-    }
-
     private syncControls(): void {
         const elements = this.elements;
         const video = this.video;
         if (!elements) return;
         const paused = video?.paused ?? true;
         elements.player.classList.toggle('paused', paused);
+        // Playing but without enough data to continue: show the spinner while it buffers.
+        elements.player.classList.toggle(
+            'buffering',
+            video !== null && !paused && video.readyState < HTMLMediaElement.HAVE_FUTURE_DATA,
+        );
         elements.play.innerHTML = svg(paused ? ICONS.play : ICONS.pause);
         elements.play.setAttribute('aria-label', paused ? 'Play' : 'Pause');
         elements.mute.innerHTML = svg(video?.muted ? ICONS.muted : ICONS.sound);
@@ -213,11 +218,15 @@ export class MiniPlayer implements VideoStage {
                 <div class="stage"></div>
                 <div class="spinner" role="status" aria-label="Loading next Reel"></div>
                 <div class="paused-icon">${svg(ICONS.play)}</div>
-                <div class="controls">
+                <div class="controls side">
                     <button type="button" data-action="previous" aria-label="Previous Reel">${svg(ICONS.previous)}</button>
                     <button type="button" data-action="next" aria-label="Next Reel">${svg(ICONS.next)}</button>
-                    <button type="button" data-action="play" aria-label="Pause">${svg(ICONS.pause)}</button>
                     <button type="button" data-action="mute" aria-label="Mute">${svg(ICONS.sound)}</button>
+                </div>
+                <div class="controls bottom">
+                    <button type="button" data-action="back" aria-label="Back 10 seconds">${svg(ICONS.back10)}</button>
+                    <button type="button" class="large" data-action="play" aria-label="Pause">${svg(ICONS.pause)}</button>
+                    <button type="button" data-action="forward" aria-label="Forward 10 seconds">${svg(ICONS.forward10)}</button>
                 </div>
                 <div class="progress"><div class="progress-bar"></div></div>
             </div>`;
@@ -239,7 +248,16 @@ export class MiniPlayer implements VideoStage {
         this.bindWheel(doc);
         this.bindDrag(this.elements.player);
         this.bindKeyboard(doc);
-        for (const type of ['play', 'pause', 'timeupdate', 'volumechange', 'loadeddata']) {
+        for (const type of [
+            'play',
+            'playing',
+            'pause',
+            'waiting',
+            'canplay',
+            'timeupdate',
+            'volumechange',
+            'loadeddata',
+        ]) {
             doc.addEventListener(type, () => this.syncControls(), true);
         }
     }
@@ -248,8 +266,10 @@ export class MiniPlayer implements VideoStage {
         doc.addEventListener('click', event => {
             const action = (event.target as Element | null)?.closest('button')?.dataset.action;
             if (action === 'previous' || action === 'next') void this.navigate(action);
-            if (action === 'mute') this.toggleMute();
+            if (action === 'mute') this.handlers.onToggleMute();
             if (action === 'play') this.handlers.onTogglePlay();
+            if (action === 'back') this.handlers.onSeek('backward');
+            if (action === 'forward') this.handlers.onSeek('forward');
         });
     }
 
@@ -300,7 +320,9 @@ export class MiniPlayer implements VideoStage {
             if (event.key === 'ArrowDown') void this.navigate('next');
             else if (event.key === 'ArrowUp') void this.navigate('previous');
             else if (event.key === ' ') this.handlers.onTogglePlay();
-            else if (event.key === 'm' || event.key === 'M') this.toggleMute();
+            else if (event.key === 'ArrowRight') this.handlers.onSeek('forward');
+            else if (event.key === 'ArrowLeft') this.handlers.onSeek('backward');
+            else if (event.key === 'm' || event.key === 'M') this.handlers.onToggleMute();
             else return;
             event.preventDefault();
         });

@@ -73,11 +73,12 @@
                     void video.play();
                 });
                 card.append(video);
+                card.video = video; // keep a reference like Facebook's player does; the element may be moved
                 feed.append(card);
                 return card;
             });
 
-            const videoOf = card => card.querySelector('video');
+            const videoOf = card => card.video;
             const indexOfUrl = () => Math.max(0, REELS.indexOf(location.pathname.split('/')[2]));
 
             function activate(card) {
@@ -107,9 +108,13 @@
             document
                 .querySelector('[aria-label="Previous Card"]')
                 .addEventListener('click', () => goTo(indexOfUrl() - 1));
-            document.getElementById('unmute').addEventListener('click', () => {
-                state.muted = false;
-                if (state.active) videoOf(state.active).muted = false;
+            // One Mute / Unmute button whose label flips, like Facebook's. The page's own mute state
+            // is applied to every Reel it activates.
+            const muteButton = document.getElementById('unmute');
+            muteButton.addEventListener('click', () => {
+                state.muted = !state.muted;
+                muteButton.setAttribute('aria-label', state.muted ? 'Unmute' : 'Mute');
+                if (state.active) videoOf(state.active).muted = state.muted;
             });
 
             document.addEventListener('visibilitychange', () => {

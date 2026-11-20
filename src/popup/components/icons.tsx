@@ -35,3 +35,21 @@ export const NextIcon = (props: IconProps) => (
         <path d="M16 5h2v14h-2zM6 18l8.5-6L6 6z" />
     </Icon>
 );
+
+export const BackTenIcon = (props: IconProps) => (
+    <Icon {...props}>
+        <path d="M12 5V1L7 6l5 5V7a6 6 0 1 1-6 6H4a8 8 0 1 0 8-8z" />
+        <text x="12" y="16.5" fontSize="7" fontWeight="700" textAnchor="middle" fontFamily="system-ui, sans-serif">
+            10
+        </text>
+    </Icon>
+);
+
+export const ForwardTenIcon = (props: IconProps) => (
+    <Icon {...props}>
+        <path d="M12 5V1l5 5-5 5V7a6 6 0 1 0 6 6h2a8 8 0 1 1-8-8z" />
+        <text x="12" y="16.5" fontSize="7" fontWeight="700" textAnchor="middle" fontFamily="system-ui, sans-serif">
+            10
+        </text>
+    </Icon>
+);

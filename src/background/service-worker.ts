@@ -2,15 +2,9 @@
  * Event-driven only: Chrome may stop this worker at any time, so it keeps no state in memory.
  * Playback logic lives in the content script; this worker only routes keyboard shortcuts.
  */
-import type { ContentRequest, PlayerCommand } from '@/shared/messages';
+import { isPlayerCommand, type ContentRequest, type PlayerCommand } from '@/shared/messages';
 import { findReelsTab } from '@/shared/reels-tab';
 import { loadSettings, updateSettings } from '@/shared/settings';
-
-const PLAYER_COMMANDS: readonly string[] = ['toggle-play', 'next-reel', 'previous-reel'] satisfies PlayerCommand[];
-
-function isPlayerCommand(command: string): command is PlayerCommand {
-    return PLAYER_COMMANDS.includes(command);
-}
 
 async function sendToReelsTab(command: PlayerCommand): Promise<void> {
     const tab = await findReelsTab();

@@ -56,6 +56,8 @@ describe('isContentRequest', () => {
     it('accepts known requests only', () => {
         expect(isContentRequest({ type: 'get-status' })).toBe(true);
         expect(isContentRequest({ type: 'command', command: 'next-reel' })).toBe(true);
+        expect(isContentRequest({ type: 'command', command: 'seek-forward' })).toBe(true);
+        expect(isContentRequest({ type: 'command', command: 'toggle-mute' })).toBe(true);
         expect(isContentRequest({ type: 'command', command: 'delete-everything' })).toBe(false);
         expect(isContentRequest(null)).toBe(false);
     });

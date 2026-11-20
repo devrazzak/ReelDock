@@ -90,6 +90,8 @@ function createMiniPlayer(session: ReelSession): LaunchButton {
     const miniPlayer = new MiniPlayer(window, {
         onNavigate: direction => session.runCommand(direction === 'next' ? 'next-reel' : 'previous-reel'),
         onTogglePlay: () => void session.runCommand('toggle-play'),
+        onToggleMute: () => void session.runCommand('toggle-mute'),
+        onSeek: direction => void session.runCommand(direction === 'forward' ? 'seek-forward' : 'seek-backward'),
         onOpen: pipDocument => {
             stopObserving = session.observe(pipDocument);
             button.setOpen(true);

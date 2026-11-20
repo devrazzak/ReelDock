@@ -1,4 +1,4 @@
-import { findReelVideo, type Direction } from '@/content/reels/reel-dom';
+import { findMuteButton, findReelVideo, type Direction } from '@/content/reels/reel-dom';
 import type { NavigationStrategy } from '@/content/reels/reel-navigator';
 import { getReelId, isReelsPage } from '@/content/reels/reel-route';
 import { findActiveVideo } from '@/content/video/active-video';
@@ -34,6 +34,9 @@ export interface VideoStage {
     /** Gives the video back to Facebook's page before it changes Reel. */
     release(direction?: Direction): void;
 }
+
+/** Facebook's own player skips 10 seconds forward or backward. */
+export const SEEK_SECONDS = 10;
 
 // Media events do not bubble, but they can be captured on the document.
 // One capture listener per event covers every current and future <video>.
@@ -147,6 +150,15 @@ export class ReelSession {
                 }
                 break;
             }
+            case 'toggle-mute':
+                this.toggleMute();
+                break;
+            case 'seek-forward':
+                this.seek(SEEK_SECONDS);
+                break;
+            case 'seek-backward':
+                this.seek(-SEEK_SECONDS);
+                break;
             case 'next-reel':
                 await this.navigate('next');
                 break;
@@ -154,6 +166,28 @@ export class ReelSession {
                 await this.navigate('previous');
                 break;
         }
+    }
+
+    /**
+     * Uses Facebook's own Mute / Unmute button, so Facebook applies the choice to the next Reels too.
+     * Muting only the element left Facebook's state muted, and every new Reel started silent.
+     */
+    private toggleMute(): void {
+        const reelId = this.getCurrentReelId();
+        const button = reelId ? findMuteButton(this.doc, reelId) : null;
+        if (button) {
+            button.click();
+            return;
+        }
+        const video = this.getCurrentVideo();
+        if (video) video.muted = !video.muted;
+    }
+
+    private seek(seconds: number): void {
+        const video = this.getCurrentVideo();
+        if (!video || !Number.isFinite(video.duration)) return;
+        // Stop just short of the end so `ended` fires and auto next takes over.
+        video.currentTime = Math.min(Math.max(video.currentTime + seconds, 0), video.duration - 0.1);
     }
 
     /** Re-evaluates and publishes status, e.g. after settings change. */
@@ -276,6 +310,8 @@ export class ReelSession {
             }
         } finally {
             this.navigating = false;
+            // The duplicate guard is per visit: a Reel watched again later may advance again.
+            if (usedStrategy) this.lastCompletedReel = null;
             this.lastNavigation = {
                 at: Date.now(),
                 result: usedStrategy ? 'success' : 'failed',
@@ -316,15 +352,30 @@ export class ReelSession {
         // window may not have (a wheel scroll does not count as user activation).
         await this.play(next);
         stage?.present(next);
-        // Facebook may pause a video it did not start itself; one retry covers that (seen in testing).
-        for (let attempt = 0; attempt < 2 && !this.disposed; attempt++) {
-            if (this.playBlocked) return false;
+        if (this.playBlocked) return false;
+        // Checked in the background, so the user can change Reel again right away.
+        void this.keepNewReelPlaying(next);
+        return true;
+    }
+
+    /** Facebook may pause a video it did not start itself; one retry covers that (seen in testing). */
+    private async keepNewReelPlaying(video: HTMLVideoElement): Promise<void> {
+        for (let attempt = 0; attempt < 2; attempt++) {
             await this.delay(this.options.playVerifyMs);
-            // A pause from the user during the check must stick (it needed two clicks before).
-            if (!next.paused || this.pausedByUser === next) return true;
-            await this.play(next);
+            // Stop when the Reel changed again, it plays, or the user paused it (that pause must stick).
+            if (this.disposed || video !== this.getCurrentVideo() || !video.paused || this.pausedByUser === video) {
+                return;
+            }
+            await this.play(video);
         }
-        return false;
+        if (video.paused && video === this.getCurrentVideo()) {
+            this.lastNavigation = {
+                at: Date.now(),
+                result: 'failed',
+                detail: 'Moved to the next Reel, but its video did not start.',
+            };
+            this.publishStatus();
+        }
     }
 
     private async play(video: HTMLVideoElement): Promise<void> {

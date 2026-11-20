@@ -328,6 +328,44 @@ async function main() {
         mini = await waitFor(readMini, m => m.id === '1002' && m.paused === false);
         check('Dragging up goes to the next Reel', mini.id === '1002' && mini.paused === false, JSON.stringify(mini));
 
+        // Mute with the M key, change Reel: the next one must stay muted (Facebook's state was changed).
+        await pip.press('m', 'KeyM');
+        await sleep(300);
+        await pip.press('ArrowUp', 'ArrowUp');
+        mini = await waitFor(readMini, m => m.id === '1001' && m.paused === false);
+        await sleep(600);
+        mini = await readMini();
+        check(
+            'Muting in the mini player carries over to the next Reel',
+            mini.id === '1001' && mini.muted === true,
+            JSON.stringify(mini),
+        );
+
+        // Unmute, change Reel: the next one must have sound (the Windows bug: it came back muted).
+        await pip.press('m', 'KeyM');
+        await sleep(300);
+        await pip.press('ArrowDown', 'ArrowDown');
+        mini = await waitFor(readMini, m => m.id === '1002' && m.paused === false);
+        await sleep(600);
+        mini = await readMini();
+        check(
+            'Unmuting in the mini player carries over to the next Reel',
+            mini.id === '1002' && mini.muted === false,
+            JSON.stringify(mini),
+        );
+
+        // Arrow keys skip 10 seconds; skipping past the end of a 3 s Reel ends it and auto next moves on.
+        await pip.press('ArrowLeft', 'ArrowLeft');
+        const rewound = await reels.evaluate(
+            'documentPictureInPicture.window.document.querySelector("video").currentTime',
+        );
+        check('Left arrow skips back to the start', rewound < 0.5, `t=${rewound}`);
+        await pip.press('ArrowRight', 'ArrowRight');
+        mini = await waitFor(readMini, m => m.id === '1003' && m.paused === false, 5000);
+        check('Right arrow skips forward; at the end auto next moves on', mini.id === '1003', JSON.stringify(mini));
+        await pip.press('ArrowUp', 'ArrowUp');
+        mini = await waitFor(readMini, m => m.id === '1002' && m.paused === false);
+
         await hideReels();
         mini = await waitFor(readMini, m => m.id === '1003' && m.paused === false, 8000);
         check(

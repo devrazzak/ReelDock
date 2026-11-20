@@ -103,6 +103,19 @@ describe('ReelSession auto next in a background tab', () => {
         expect(page.videos[2]!.paused).toBe(false);
     });
 
+    it('advances again from a Reel the user came back to', async () => {
+        const { page, session } = setup();
+        page.videos[0]!.finish();
+        await settle();
+        await session.runCommand('previous-reel');
+        expect(location.pathname).toBe('/reel/111');
+
+        page.videos[0]!.finish();
+        await settle();
+
+        expect(location.pathname).toBe('/reel/222');
+    });
+
     it('ignores completion of a video that is not the current Reel', async () => {
         const { page } = setup();
         page.videos[2]!.finish();
@@ -195,6 +208,56 @@ describe('ReelSession keeps a pause from the user', () => {
 
         expect(location.pathname).toBe('/reel/111');
         expect(page.videos[0]!.paused).toBe(false);
+    });
+});
+
+describe('ReelSession sound and seeking', () => {
+    it('mutes through Facebook, so the next Reel keeps the sound on', async () => {
+        const { page, session } = setup({ hidden: false });
+        page.autoplayOnNavigate = true;
+        const stage = new FakeStage();
+        session.attachStage(stage);
+        stage.present(page.videos[0]!);
+
+        await session.runCommand('toggle-mute'); // Unmute
+        expect(page.facebookMuted).toBe(false);
+
+        await session.runCommand('next-reel');
+        await settle(100); // Facebook applies its mute state to the new Reel
+
+        expect(page.videos[1]!.muted).toBe(false);
+    });
+
+    it('documents the old bug: unmuting only the element lets Facebook mute the next Reel', async () => {
+        const { page, session } = setup({ hidden: false });
+        page.autoplayOnNavigate = true;
+        page.videos[0]!.muted = false;
+
+        await session.runCommand('next-reel');
+        await settle(100);
+
+        expect(page.videos[1]!.muted).toBe(true);
+    });
+
+    it('skips 10 seconds and stops just before the end', async () => {
+        const { page, session } = setup();
+        const video = page.videos[0]!;
+        video.currentTime = 5;
+
+        await session.runCommand('seek-backward');
+        expect(video.currentTime).toBe(0);
+
+        await session.runCommand('seek-forward');
+        expect(video.currentTime).toBe(9.9);
+    });
+});
+
+describe('ReelSession responsiveness', () => {
+    it('accepts the next Reel change right after one, while the new Reel is still being checked', async () => {
+        const { session } = setup({ playVerifyMs: 500 });
+        await session.runCommand('next-reel');
+        await session.runCommand('next-reel');
+        expect(location.pathname).toBe('/reel/333');
     });
 });
 

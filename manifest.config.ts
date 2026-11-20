@@ -54,6 +54,13 @@ export default defineManifest({
             suggested_key: { default: 'Alt+Shift+A' },
             description: 'Turn Auto Next on / off',
         },
+        // Chrome allows at most four suggested shortcuts; users can assign these in chrome://extensions/shortcuts.
+        'seek-forward': {
+            description: 'Skip forward 10 seconds',
+        },
+        'seek-backward': {
+            description: 'Skip back 10 seconds',
+        },
         'toggle-background-playback': {
             suggested_key: { default: 'Alt+Shift+B' },
             description: 'Turn Background Playback on / off',

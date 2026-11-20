@@ -22,6 +22,7 @@ Findings from inspecting facebook.com (Nov 2026) shaped the design:
 | Synthetic `ArrowDown` key events are ignored by Facebook.                                                                                                                  | No keyboard strategy.                                                                                               |
 | In a hidden tab, "Next Card" changes the URL but the new video never starts: scroll animation and IntersectionObserver need rendering, which Chrome stops for hidden tabs. | After navigating in a hidden tab, the extension starts the new Reel's video itself, keeping the user's mute/volume. |
 | Facebook's own `ended` listener runs after ours and replays the old Reel.                                                                                                  | While managing a hidden tab, any video other than the current Reel's is paused when it starts.                      |
+| Facebook keeps its own mute state and applies it to every new Reel; muting only the `<video>` element does not change it.                                                  | Mute / unmute presses Facebook's own Mute button, so the choice persists across Reels.                              |
 | Moving Facebook's (MSE-backed) `<video>` into a Document Picture-in-Picture window keeps it playing; moving it back restores Facebook's page.                              | The mini player shows Facebook's own element; nothing is copied or re-streamed.                                     |
 | Chrome's autoplay check uses the video's own document. A wheel scroll is not a user activation, so `play()` inside the mini player window can be blocked.                  | Each new Reel is started while still in Facebook's page (which has the user's click), then moved into the window.   |
 
@@ -85,13 +86,18 @@ content-script changes).
 4. **Mini player:** click **Mini player** at the bottom right of the Reels page. A floating window opens
    on top of every app; move and resize it anywhere. Inside it:
 
-    | Input                              | Action                            |
-    | ---------------------------------- | --------------------------------- |
-    | Scroll down / up (wheel, trackpad) | Next / previous Reel              |
-    | Drag up / down                     | Next / previous Reel              |
-    | Click                              | Play / pause                      |
-    | `↓` / `↑`, `Space`, `M`            | Next / previous, play/pause, mute |
-    | Buttons on hover                   | Previous, next, mute              |
+    | Input                              | Action                                            |
+    | ---------------------------------- | ------------------------------------------------- |
+    | Scroll down / up (wheel, trackpad) | Next / previous Reel                              |
+    | Drag up / down                     | Next / previous Reel                              |
+    | Click                              | Play / pause                                      |
+    | `↓` / `↑`                          | Next / previous Reel                              |
+    | `←` / `→`                          | Back / forward 10 seconds, like Facebook's player |
+    | `Space`, `M`                       | Play/pause, mute                                  |
+    | Buttons on hover                   | Previous, next, mute, ±10 s, play/pause           |
+
+    A spinner shows while a Reel loads. Mute uses Facebook's own Mute button, so the choice carries
+    over to the next Reels.
 
     Auto next keeps working inside it, also while the Facebook tab is in the background. Closing the
     window puts the Reel back into Facebook's page and keeps playing.
@@ -103,7 +109,9 @@ content-script changes).
 | `Alt+Shift+A` | Toggle Auto next           |
 | `Alt+Shift+B` | Toggle Background playback |
 
-On macOS `Alt` is `Option`. Change them at `chrome://extensions/shortcuts`. Shortcuts work while
+"Skip forward / back 10 seconds" have no default key, because Chrome allows four suggested
+shortcuts; assign them at `chrome://extensions/shortcuts`. On macOS `Alt` is `Option`. Change them at
+`chrome://extensions/shortcuts`. Shortcuts work while
 Chrome is focused (any tab).
 
 ## Test
@@ -129,17 +137,17 @@ pnpm test:e2e     # real Chrome with the extension loaded; needs Chrome for Test
 
 ## Verification status (21 Nov 2026)
 
-| Check                                                                                                                                                                     | Result               |
-| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------- |
-| Unit + integration tests (38)                                                                                                                                             | Pass                 |
-| Typecheck (strict), Prettier                                                                                                                                              | Pass                 |
-| E2E in Chrome for Testing 153: background playback (tab truly hidden), popup, mini player (open, wheel, drag, auto next while hidden, close, one-click pause) — 23 checks | Pass                 |
-| facebook.com, manual probes in a hidden tab: Facebook pauses on hidden; guard prevents it; "Next Card" + hand-over plays 3 Reels in a row                                 | Verified             |
-| facebook.com, production modules (live harness), visible tab: auto next with sound, 6 Reels, never navigated wrongly                                                      | Verified             |
-| facebook.com, installed extension in Chrome on macOS: background playback and auto next                                                                                   | Verified by the user |
-| facebook.com, mini player prototype (same move-the-video approach) in Chrome on macOS                                                                                     | Verified by the user |
-| facebook.com, mini player in the installed extension                                                                                                                      | **Not yet run**      |
-| Windows                                                                                                                                                                   | **Not yet run**      |
+| Check                                                                                                                                                                                                  | Result               |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------- |
+| Unit + integration tests (44)                                                                                                                                                                          | Pass                 |
+| Typecheck (strict), Prettier                                                                                                                                                                           | Pass                 |
+| E2E in Chrome for Testing 153: background playback (tab truly hidden), popup, mini player (open, wheel, drag, auto next while hidden, close, one-click pause, mute carry-over, ±10 s keys) — 27 checks | Pass                 |
+| facebook.com, manual probes in a hidden tab: Facebook pauses on hidden; guard prevents it; "Next Card" + hand-over plays 3 Reels in a row                                                              | Verified             |
+| facebook.com, production modules (live harness), visible tab: auto next with sound, 6 Reels, never navigated wrongly                                                                                   | Verified             |
+| facebook.com, installed extension in Chrome on macOS: background playback and auto next                                                                                                                | Verified by the user |
+| facebook.com, mini player prototype (same move-the-video approach) in Chrome on macOS                                                                                                                  | Verified by the user |
+| facebook.com, mini player in the installed extension                                                                                                                                                   | **Not yet run**      |
+| Windows                                                                                                                                                                                                | **Not yet run**      |
 
 Manual checklist (run on macOS and Windows before publishing):
 
