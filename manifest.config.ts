@@ -1,0 +1,62 @@
+import { defineManifest } from '@crxjs/vite-plugin';
+
+import packageJson from './package.json' with { type: 'json' };
+
+const FACEBOOK_MATCHES = ['https://www.facebook.com/*', 'https://web.facebook.com/*'];
+
+export default defineManifest({
+    manifest_version: 3,
+    name: 'Reels Background Player',
+    short_name: 'Reels BG Player',
+    description: 'Keep Facebook Reels playing while you work in other tabs, and move to the next Reel automatically.',
+    version: packageJson.version,
+    minimum_chrome_version: '116',
+    icons: {
+        16: 'icons/icon-16.png',
+        32: 'icons/icon-32.png',
+        48: 'icons/icon-48.png',
+        128: 'icons/icon-128.png',
+    },
+    action: {
+        default_popup: 'src/popup/index.html',
+        default_title: 'Reels Background Player',
+    },
+    background: {
+        service_worker: 'src/background/service-worker.ts',
+        type: 'module',
+    },
+    permissions: ['storage'],
+    host_permissions: FACEBOOK_MATCHES,
+    content_scripts: [
+        {
+            // Runs in the page's own JS world before Facebook's scripts, so it can answer visibility checks.
+            matches: FACEBOOK_MATCHES,
+            js: ['src/page-world/visibility-guard.iife.ts'],
+            run_at: 'document_start',
+            world: 'MAIN',
+        },
+        {
+            matches: FACEBOOK_MATCHES,
+            js: ['src/content/main.iife.ts'],
+            run_at: 'document_start',
+        },
+    ],
+    commands: {
+        'toggle-play': {
+            suggested_key: { default: 'Alt+Shift+P' },
+            description: 'Play / pause the current Reel',
+        },
+        'next-reel': {
+            suggested_key: { default: 'Alt+Shift+N' },
+            description: 'Go to the next Reel',
+        },
+        'toggle-auto-next': {
+            suggested_key: { default: 'Alt+Shift+A' },
+            description: 'Turn Auto Next on / off',
+        },
+        'toggle-background-playback': {
+            suggested_key: { default: 'Alt+Shift+B' },
+            description: 'Turn Background Playback on / off',
+        },
+    },
+});

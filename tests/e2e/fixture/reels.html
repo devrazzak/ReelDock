@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <title>Fake Reels (e2e fixture)</title>
+        <style>
+            body {
+                margin: 0;
+                font-family: sans-serif;
+            }
+            #feed {
+                height: 100vh;
+                overflow-y: auto;
+                scroll-snap-type: y mandatory;
+            }
+            .card {
+                height: 100vh;
+                display: grid;
+                place-items: center;
+                scroll-snap-align: start;
+                background: #111;
+            }
+            video {
+                height: 90vh;
+            }
+            #controls {
+                position: fixed;
+                right: 16px;
+                top: 40%;
+                display: flex;
+                flex-direction: column;
+                gap: 8px;
+            }
+            #controls div {
+                background: #eee;
+                padding: 8px;
+                cursor: pointer;
+            }
+        </style>
+    </head>
+    <body>
+        <!--
+            Imitates the Facebook Reels behaviour verified on facebook.com (Nov 2026):
+            - cards carry data-video-id equal to the URL id; each holds one <video>
+            - "Next Card" / "Previous Card" buttons change the URL with pushState and scroll
+            - the card in view is started by an IntersectionObserver (needs rendering, so not in hidden tabs)
+            - the player pauses on visibilitychange when hidden and resumes when visible
+            - when a video ends, the player replays it instead of moving on
+            - Reels start muted until the user clicks Unmute
+        -->
+        <div id="feed"></div>
+        <div id="controls">
+            <div role="button" aria-label="Previous Card">Up</div>
+            <div role="button" aria-label="Next Card">Down</div>
+            <div role="button" aria-label="Unmute" id="unmute">Unmute</div>
+        </div>
+        <script>
+            const REELS = ['1001', '1002', '1003', '1004'];
+            const state = { muted: true, active: null };
+            const feed = document.getElementById('feed');
+
+            const cards = REELS.map((id, index) => {
+                const card = document.createElement('div');
+                card.className = 'card';
+                card.dataset.videoId = id;
+                const video = document.createElement('video');
+                video.src = `/__fixture/reel-${index + 1}.mp4`;
+                video.playsInline = true;
+                video.muted = true;
+                video.preload = 'auto';
+                video.addEventListener('ended', () => {
+                    video.currentTime = 0;
+                    void video.play();
+                });
+                card.append(video);
+                feed.append(card);
+                return card;
+            });
+
+            const videoOf = card => card.querySelector('video');
+            const indexOfUrl = () => Math.max(0, REELS.indexOf(location.pathname.split('/')[2]));
+
+            function activate(card) {
+                if (state.active === card) return;
+                for (const other of cards) if (other !== card) videoOf(other).pause();
+                state.active = card;
+                const video = videoOf(card);
+                video.muted = state.muted;
+                void video.play().catch(() => {});
+            }
+
+            const observer = new IntersectionObserver(
+                entries => {
+                    for (const entry of entries) if (entry.intersectionRatio >= 0.6) activate(entry.target);
+                },
+                { root: feed, threshold: [0.6] },
+            );
+            cards.forEach(card => observer.observe(card));
+
+            function goTo(index) {
+                if (index < 0 || index >= REELS.length) return;
+                history.pushState({}, '', `/reel/${REELS[index]}`);
+                feed.scrollTo({ top: index * feed.clientHeight, behavior: 'smooth' });
+            }
+
+            document.querySelector('[aria-label="Next Card"]').addEventListener('click', () => goTo(indexOfUrl() + 1));
+            document
+                .querySelector('[aria-label="Previous Card"]')
+                .addEventListener('click', () => goTo(indexOfUrl() - 1));
+            document.getElementById('unmute').addEventListener('click', () => {
+                state.muted = false;
+                if (state.active) videoOf(state.active).muted = false;
+            });
+
+            document.addEventListener('visibilitychange', () => {
+                if (!state.active) return;
+                if (document.hidden) videoOf(state.active).pause();
+                else void videoOf(state.active).play();
+            });
+
+            feed.scrollTop = indexOfUrl() * feed.clientHeight;
+        </script>
+    </body>
+</html>

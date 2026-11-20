@@ -1,0 +1,7 @@
+@import 'tailwindcss';
+@import '@rax-ds/ui/styles.css';
+
+body {
+    width: 360px;
+    margin: 0;
+}

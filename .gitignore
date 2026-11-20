@@ -1,0 +1,9 @@
+node_modules
+dist
+*.zip
+.vite
+.DS_Store
+tests/e2e/.profile
+tests/live/dist
+tests/e2e/popup.png
+release
