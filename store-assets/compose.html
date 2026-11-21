@@ -120,25 +120,54 @@
                 backdrop-filter: blur(6px);
             }
 
-            .tile .frame {
-                display: flex;
-                flex-direction: column;
-                justify-content: center;
-                padding: 0 32px;
-                gap: 12px;
+            /* The promo tile is screenshot 1 laid out again at 440×280, so the text stays readable. */
+            .tile .copy {
+                left: 24px;
+                width: 180px;
             }
-            .tile img {
-                width: 56px;
-                height: 56px;
-                border-radius: 14px;
-                box-shadow: 0 0 0 3px rgb(255 255 255 / 0.9);
+            .tile .eyebrow {
+                font-size: 9px;
+                margin-bottom: 8px;
             }
             .tile h1 {
-                font-size: 30px;
-                margin: 0;
+                font-size: 23px;
+                margin-bottom: 8px;
             }
             .tile p {
-                font-size: 15px;
+                font-size: 11px;
+            }
+            .tile .brand {
+                left: 24px;
+                bottom: 16px;
+                gap: 7px;
+                font-size: 11px;
+            }
+            .tile .brand img {
+                width: 20px;
+                height: 20px;
+                border-radius: 5px;
+            }
+            .tile .work {
+                border-radius: 8px;
+            }
+            .tile .work .bar {
+                height: 16px;
+                gap: 4px;
+                padding: 0 7px;
+            }
+            .tile .work .bar i {
+                width: 6px;
+                height: 6px;
+            }
+            .tile .work .lines {
+                padding: 10px 12px;
+                gap: 6px;
+            }
+            .tile .work .lines span {
+                height: 5px;
+            }
+            .tile .shot {
+                border-radius: 8px;
             }
         </style>
     </head>
@@ -302,9 +331,14 @@
                     }),
                 ),
                 tile: `
-                    <img src="raw/icon-128.png" alt="" />
-                    <h1>ReelDock</h1>
-                    <p>Auto scroll Reels &amp; Shorts, mini player</p>`,
+                    <div class="copy">
+                        <div class="eyebrow">Background playback</div>
+                        <h1>Keep Reels playing while you work</h1>
+                        <p>Switch to any tab. The next Reel starts by itself.</p>
+                    </div>
+                    ${work('left:236px;top:36px;width:184px;height:208px', 14)}
+                    <img class="shot" src="raw/popup-light-cropped.png" style="left:300px;top:52px;width:112px" />
+                    ${brand}`,
             };
 
             if (shot === 'tile') document.body.classList.add('tile');
