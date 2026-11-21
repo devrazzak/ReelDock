@@ -87,6 +87,13 @@ async function launchChrome() {
             ),
         value => value !== null,
     );
+    if (!version) {
+        chrome.kill();
+        throw new Error(
+            `Chrome did not start from "${chromePath}". Set CHROME_PATH to Chrome for Testing or Chromium ` +
+                '(branded Google Chrome ignores --load-extension).',
+        );
+    }
     const client = await CdpClient.connect(version.webSocketDebuggerUrl);
     const stop = async () => {
         client.close();
