@@ -35,6 +35,15 @@ export const YOUTUBE_SITE: SupportedSite = {
     reelsPath: '/shorts/*',
 };
 
+export const INSTAGRAM_SITE: SupportedSite = {
+    id: 'instagram',
+    name: 'Instagram Reels',
+    startUrl: 'https://www.instagram.com/reels/',
+    color: '#E1306C',
+    hostnames: ['www.instagram.com'],
+    reelsPath: '/reels/*',
+};
+
 export const SUPPORTED_SITES: readonly SupportedSite[] = [FACEBOOK_SITE, YOUTUBE_SITE];
 
 /** The supported site a page URL belongs to, or null. */
