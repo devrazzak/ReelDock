@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <title>Fake Instagram Reels (e2e fixture)</title>
+        <style>
+            body {
+                margin: 0;
+                background: #fff;
+                font-family: sans-serif;
+            }
+            #feed {
+                height: 100vh;
+                overflow-y: auto;
+                scroll-snap-type: y mandatory;
+            }
+            .card {
+                position: relative;
+                height: 100vh;
+                scroll-snap-align: center;
+                display: grid;
+                place-items: center;
+            }
+            .card video {
+                height: 85vh;
+                aspect-ratio: 9 / 16;
+                background: #222;
+            }
+            .mute {
+                position: absolute;
+                left: calc(50% + 20vh);
+                bottom: 10vh;
+                width: 32px;
+                height: 32px;
+                cursor: pointer;
+            }
+            .mute svg {
+                width: 32px;
+                height: 32px;
+                background: #ccc;
+            }
+            /* Round white 44 px arrows with a soft shadow, like instagram.com (measured Nov 2026). */
+            #navigation {
+                position: fixed;
+                right: 39px;
+                top: calc(50% - 52px);
+                display: flex;
+                flex-direction: column;
+                gap: 16px;
+            }
+            #navigation [role='button'] {
+                width: 44px;
+                height: 44px;
+                border-radius: 50%;
+                background: #fff;
+                box-shadow: 0 4px 12px rgb(0 0 0 / 0.15);
+                cursor: pointer;
+            }
+        </style>
+    </head>
+    <body>
+        <!--
+            Imitates the Instagram Reels behaviour verified on instagram.com (Nov 2026):
+            - /reels/<id>/; a card carries no id, so a video cannot be found by the id in the URL
+            - a scroll-snap feed with one <video> per card, all loaded up front; no loop attribute
+            - a finished video is replayed from 0 and the feed does not move on by itself
+            - "Navigate to next/previous Reel" buttons smooth-scroll the feed (no frames, no scrolling in a hidden tab)
+            - an IntersectionObserver (no callbacks in a hidden tab) changes the URL AT ONCE when a card is on screen
+              and pauses the old video / plays the new one 300 ms LATER
+            - one mute button per card; the choice applies to every video
+        -->
+        <div id="feed"></div>
+        <div id="navigation">
+            <div role="button" aria-label="Navigate to previous Reel"></div>
+            <div role="button" aria-label="Navigate to next Reel"></div>
+        </div>
+        <script>
+            const IDS = ['ig_0001', 'ig_0002', 'ig_0003', 'ig_0004'];
+            const state = { muted: true };
+            const feed = document.getElementById('feed');
+            const urlId = () => location.pathname.split('/')[2];
+            const videos = [];
+
+            IDS.forEach((id, index) => {
+                const card = document.createElement('div');
+                card.className = 'card';
+                card.dataset.reel = id;
+                const video = document.createElement('video');
+                video.src = `/__fixture/reel-${index + 1}.mp4`;
+                video.muted = true;
+                video.playsInline = true;
+                video.preload = 'auto';
+                video.reelId = id; // a property, not an attribute: the extension must not find it by id
+                // Like Instagram: a finished video simply starts again.
+                video.addEventListener('ended', () => {
+                    video.currentTime = 0;
+                    void video.play().catch(() => {});
+                });
+                const mute = document.createElement('div');
+                mute.className = 'mute';
+                mute.setAttribute('role', 'button');
+                mute.innerHTML = '<svg aria-label="Audio is muted" viewBox="0 0 24 24"></svg>';
+                mute.addEventListener('click', () => {
+                    state.muted = !state.muted;
+                    for (const other of videos) other.muted = state.muted;
+                    for (const icon of document.querySelectorAll('.mute svg')) {
+                        icon.setAttribute('aria-label', state.muted ? 'Audio is muted' : 'Audio is playing');
+                    }
+                });
+                card.append(video, mute);
+                feed.append(card);
+                videos.push(video);
+            });
+
+            // The URL changes at once, the old video is paused and the new one played a moment later.
+            const observer = new IntersectionObserver(
+                entries => {
+                    for (const entry of entries) {
+                        if (!entry.isIntersecting) continue;
+                        const id = entry.target.dataset.reel;
+                        if (urlId() !== id) history.pushState({}, '', `/reels/${id}/`);
+                        setTimeout(() => {
+                            for (const video of videos) if (video.reelId !== id) video.pause();
+                            const own = videos.find(video => video.reelId === id);
+                            if (!document.hidden) void own.play().catch(() => {});
+                        }, 300);
+                    }
+                },
+                { root: feed, threshold: 0.6 },
+            );
+            for (const card of feed.children) observer.observe(card);
+
+            // Like Instagram, the buttons smooth-scroll the feed, which needs rendered frames.
+            const scrollBy = step => {
+                const index = Math.round(feed.scrollTop / feed.clientHeight) + step;
+                feed.children[index]?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+            };
+            document
+                .querySelector('[aria-label="Navigate to next Reel"]')
+                .addEventListener('click', () => scrollBy(1));
+            document
+                .querySelector('[aria-label="Navigate to previous Reel"]')
+                .addEventListener('click', () => scrollBy(-1));
+
+            // The page pauses when hidden and resumes when visible (the extension hides this from it).
+            document.addEventListener('visibilitychange', () => {
+                if (document.hidden) for (const video of videos) video.pause();
+                else void videos.find(video => video.reelId === urlId())?.play();
+            });
+
+            history.scrollRestoration = 'manual';
+            feed.children[Math.max(0, IDS.indexOf(urlId()))].scrollIntoView({ block: 'center', behavior: 'instant' });
+        </script>
+    </body>
+</html>

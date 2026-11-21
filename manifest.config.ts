@@ -7,10 +7,10 @@ const SITE_MATCHES = getSiteMatchPatterns();
 
 export default defineManifest({
     manifest_version: 3,
-    name: 'ReelDock – Facebook Reels Auto Scroll & Mini Player',
+    name: 'ReelDock – Auto Scroll Reels & Shorts, Mini Player',
     short_name: 'ReelDock',
     description:
-        'Auto scroll Facebook Reels, keep them playing in the background, and watch in a floating mini player you can scroll.',
+        'Auto scroll Facebook Reels, YouTube Shorts and Instagram Reels, play in the background, and watch in a floating mini player.',
     version: packageJson.version,
     minimum_chrome_version: '116',
     icons: {

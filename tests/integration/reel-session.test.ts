@@ -474,6 +474,43 @@ describe('ReelSession when the URL changes before the site leaves the old video'
     });
 });
 
+describe('ReelSession with a site that reuses one video element', () => {
+    it('takes the same element once its source has changed (YouTube)', async () => {
+        const page = createFakeReelsPage(document, REELS);
+        const video = page.videos[0]!;
+        let source = 'short-1.mp4';
+        Object.defineProperty(video, 'currentSrc', { get: () => source });
+        const platform = { ...facebookAdapter, findReelVideo: () => video };
+        const session = new ReelSession({
+            doc: document,
+            platform,
+            strategies: [
+                {
+                    name: 'reused-element',
+                    trigger: () => {
+                        history.replaceState({}, '', '/reel/222');
+                        setTimeout(() => (source = 'short-2.mp4'), 100);
+                        return true;
+                    },
+                },
+            ],
+            getSettings: () => DEFAULT_SETTINGS,
+            onStatus: () => undefined,
+            isTabHidden: () => true,
+            navigationTimeoutMs: 400,
+            playVerifyMs: 20,
+        });
+        session.start();
+        current = { page, session, settings: DEFAULT_SETTINGS, statuses: [] };
+        await video.play();
+
+        await session.runCommand('next-reel');
+
+        expect(session.getStatus().lastNavigation).toMatchObject({ result: 'success', detail: 'reused-element' });
+        expect(video.paused).toBe(false);
+    });
+});
+
 describe('ReelSession commands', () => {
     it('toggles play and pause on the current Reel', async () => {
         const { page, session } = setup();

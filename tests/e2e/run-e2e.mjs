@@ -1,13 +1,14 @@
 /**
  * End-to-end test in a real Chrome with the built extension loaded, driven over raw CDP.
  *
- * Facebook needs a login, so requests to www.facebook.com are answered with a local fixture
- * that imitates the verified Facebook behaviour (see fixture/reels.html). The Facebook tab is
+ * Facebook, YouTube and Instagram need a login or the network, so requests to their hosts are answered with a local
+ * fixture that imitates the verified behaviour (fixture/reels.html, shorts.html, instagram.html). The Facebook tab is
  * put in the background the way a user does it: another tab in the same window becomes active.
  *
  * Usage: pnpm test:e2e
  *   CHROME_PATH      Chrome for Testing or Chromium (branded Google Chrome ignores --load-extension)
  *   E2E_SCREENSHOTS  folder for popup.png (default: tests/e2e/)
+ *   E2E_ONLY         "instagram" runs only the Instagram checks
  */
 import { spawn } from 'node:child_process';
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
@@ -44,6 +45,7 @@ const pageState = findVideo => `(() => {
     return {
         realVisibility: getVisibility.call(document),
         id,
+        playingId: video?.closest('[data-reel]')?.dataset.reel ?? null,
         paused: video ? video.paused : null,
         muted: video ? video.muted : null,
         playing: [...document.querySelectorAll('video')].filter(v => !v.paused).length,
@@ -51,6 +53,10 @@ const pageState = findVideo => `(() => {
 })()`;
 const PAGE_STATE = pageState(`document.querySelector('[data-video-id="' + id + '"] video')`);
 const YOUTUBE_STATE = pageState(`document.querySelector('ytd-shorts video')`);
+// Instagram cards carry no id, and in a hidden tab the URL stays behind: follow the video that plays.
+const INSTAGRAM_STATE = pageState(
+    `([...document.querySelectorAll('video')].find(v => !v.paused) ?? document.querySelector('video'))`,
+);
 
 async function waitFor(read, predicate, timeoutMs = 10000) {
     const start = Date.now();
@@ -73,6 +79,8 @@ async function launchChrome() {
         '--disable-features=DisableLoadExtensionCommandLineSwitch',
         '--no-first-run',
         '--no-default-browser-check',
+        // A window covered by the user's other windows would otherwise report its active tab as hidden.
+        '--disable-backgrounding-occluded-windows',
         '--window-size=1000,800',
         'about:blank',
     ];
@@ -179,6 +187,7 @@ async function runYoutubeChecks({ client, control, setSettings, hideTab }) {
         control.evaluate(`(async () => {
             const [tab] = await chrome.tabs.query({ url: 'https://www.youtube.com/*' });
             await chrome.tabs.update(tab.id, { active: true });
+            await chrome.windows.update(tab.windowId, { focused: true });
         })()`);
     const shortFile = id => `short-${Number(id.slice(3))}.mp4`;
 
@@ -306,6 +315,174 @@ async function runYoutubeChecks({ client, control, setSettings, hideTab }) {
         'YouTube control: with background playback off, the page pauses when hidden',
         state.realVisibility === 'hidden' && state.paused === true,
     );
+    await client.send('Target.closeTarget', { targetId: tab.targetId });
+}
+
+const INSTAGRAM_MINI_STATE = `(() => {
+    const pip = documentPictureInPicture.window;
+    const video = pip?.document.querySelector('video');
+    return {
+        open: Boolean(pip),
+        id: location.pathname.split('/')[2],
+        inMiniPlayer: Boolean(video) && video.closest('[data-reel]') === null,
+        miniVideoSrc: video ? video.currentSrc.split('/').pop() : null,
+        paused: video ? video.paused : null,
+        muted: video ? video.muted : null,
+        playing: [...document.querySelectorAll('video')].filter(v => !v.paused).length + (video && !video.paused ? 1 : 0),
+    };
+})()`;
+
+/**
+ * The same extension on a third site: a fixture that imitates Instagram Reels (see fixture/instagram.html).
+ * The site changes the URL before it pauses the old video, pauses a video that left its card, and scrolls only
+ * on rendered frames, so in a hidden tab the extension moves to a neighbouring video itself.
+ */
+async function runInstagramChecks({ client, control, setSettings, hideTab }) {
+    await setSettings(true);
+    const tab = await openTab(client);
+    await serveFixture(client, tab, 'www.instagram.com', 'instagram.html');
+    await tab.send('Page.navigate', { url: 'https://www.instagram.com/reels/ig_0001/' });
+    const read = () => tab.evaluate(INSTAGRAM_STATE);
+    const showTab = () =>
+        control.evaluate(`(async () => {
+            const [tab] = await chrome.tabs.query({ url: 'https://www.instagram.com/*' });
+            await chrome.tabs.update(tab.id, { active: true });
+            await chrome.windows.update(tab.windowId, { focused: true });
+        })()`);
+    const reelFile = id => `reel-${Number(id.slice(3))}.mp4`;
+
+    let state = await waitFor(read, s => s.paused === false);
+    check('Instagram: Reel starts playing', state.paused === false, `reel ${state.playingId}`);
+    await tab.click('[aria-label="Audio is muted"]'); // trusted click = user activation
+    state = await waitFor(read, s => s.muted === false);
+    check('Instagram: sound is on after the user clicks the mute button', state.muted === false);
+
+    await hideTab();
+    state = await waitFor(read, s => s.realVisibility === 'hidden');
+    check('Instagram: tab is really in the background', state.realVisibility === 'hidden', state.realVisibility);
+    // The site's own buttons do nothing here, so auto next has to move to the loaded neighbour itself.
+    const visited = [state.playingId];
+    const log = [];
+    for (let i = 0; i < 160 && visited.length < 4; i++) {
+        await sleep(250);
+        const now = await read();
+        // Evidence only: when the order is wrong, this shows which Reel played when and how many played together.
+        log.push(`${i * 250}ms ${now.playingId}x${now.playing}`);
+        if (now.playingId && visited.at(-1) !== now.playingId) visited.push(now.playingId);
+    }
+    check(
+        'Instagram: auto next moved through every Reel while hidden',
+        visited.join(',') === 'ig_0001,ig_0002,ig_0003,ig_0004',
+        visited.join(' → ') + (visited.join(',') === 'ig_0001,ig_0002,ig_0003,ig_0004' ? '' : ` | ${log.join(', ')}`),
+    );
+    state = await waitFor(read, s => s.playingId === 'ig_0004' && s.paused === false, 5000);
+    check(
+        'Instagram: last Reel is playing with sound in the background',
+        state.paused === false && state.muted === false,
+        JSON.stringify(state),
+    );
+    check('Instagram: only one video plays at a time', state.playing === 1, `${state.playing} playing`);
+
+    await showTab();
+    state = await waitFor(read, s => s.realVisibility === 'visible' && s.id === s.playingId && s.playing === 1, 5000);
+    check(
+        'Instagram: back in the tab, the URL follows the Reel that plays and only one video plays',
+        state.id === 'ig_0004' && state.id === state.playingId && state.playing === 1,
+        JSON.stringify(state),
+    );
+
+    // ---- Mini player ----
+    await tab.evaluate(`history.replaceState({}, '', '/reels/ig_0001/')`);
+    await reloadAndWait(tab);
+    await waitFor(read, s => s.paused === false);
+    await tab.click('[aria-label="Audio is muted"]');
+    state = await waitFor(read, s => s.muted === false, 3000);
+    check('Instagram: sound is on again after reloading the page', state.muted === false, JSON.stringify(state));
+    const launcher = await tab.evaluate(`(() => {
+        const host = document.querySelector('reeldock-launcher').getBoundingClientRect();
+        const next = document.querySelector('[aria-label="Navigate to next Reel"]').getBoundingClientRect();
+        return {
+            x: host.left + host.width / 2,
+            y: host.top + host.height / 2,
+            gap: host.top - next.bottom,
+            dx: host.left + host.width / 2 - (next.left + next.width / 2),
+        };
+    })()`);
+    check(
+        'Instagram: mini player button sits right under the next button',
+        Math.abs(launcher.gap - 16) <= 1 && Math.abs(launcher.dx) <= 1,
+        JSON.stringify(launcher),
+    );
+    await tab.clickAt(launcher.x, launcher.y);
+    const readMini = () => tab.evaluate(INSTAGRAM_MINI_STATE);
+    let mini = await waitFor(readMini, m => m.open && m.paused === false);
+    check(
+        'Instagram: mini player opens and plays the Reel',
+        mini.open && mini.inMiniPlayer && mini.paused === false && mini.miniVideoSrc === reelFile(mini.id),
+        JSON.stringify(mini),
+    );
+
+    const pipTarget = await waitFor(
+        async () =>
+            (await client.send('Target.getTargets')).targetInfos.find(
+                t => t.type === 'page' && t.openerId === tab.targetId && t.url === 'about:blank',
+            ),
+        target => Boolean(target),
+    );
+    const pip = await client.attach(pipTarget.targetId);
+    await pip.send('Runtime.enable');
+
+    // The site changes the URL before it pauses the old video; the mini player must still get the NEW video.
+    await pip.wheel(180, 320, 150);
+    mini = await waitFor(readMini, m => m.id === 'ig_0002' && m.paused === false);
+    await sleep(800);
+    mini = await readMini();
+    check(
+        'Instagram: mouse wheel in the mini player shows the next Reel, not the old one again',
+        mini.id === 'ig_0002' && mini.miniVideoSrc === reelFile('ig_0002') && mini.paused === false,
+        JSON.stringify(mini),
+    );
+    check('Instagram: only the mini player video plays', mini.playing === 1, `${mini.playing} playing`);
+    check('Instagram: sound stays on in the mini player', mini.muted === false);
+
+    await pip.clickAt(120, 300);
+    await sleep(1800);
+    mini = await readMini();
+    check('Instagram: a pause from the user in the mini player stays', mini.paused === true, JSON.stringify(mini));
+    await pip.clickAt(120, 300);
+    mini = await waitFor(readMini, m => m.paused === false, 3000);
+    check('Instagram: another click plays again', mini.paused === false);
+
+    await hideTab();
+    mini = await waitFor(readMini, m => m.miniVideoSrc === reelFile('ig_0003') && m.paused === false, 10000);
+    check(
+        'Instagram: auto next continues inside the mini player while the tab is hidden',
+        mini.inMiniPlayer && mini.miniVideoSrc === reelFile('ig_0003') && mini.paused === false,
+        JSON.stringify(mini),
+    );
+
+    await tab.evaluate('documentPictureInPicture.window.close()');
+    await sleep(800);
+    const back = await tab.evaluate(`(() => {
+        const video = [...document.querySelectorAll('video')].find(v => !v.paused);
+        return { inCard: Boolean(video?.closest('[data-reel]')), paused: video ? video.paused : null };
+    })()`);
+    check(
+        'Instagram: closing the mini player returns the video to its card and keeps playing',
+        back.inCard && back.paused === false,
+        JSON.stringify(back),
+    );
+    await showTab();
+
+    // ---- Control: background playback off ----
+    await setSettings(false);
+    await sleep(300);
+    await hideTab();
+    state = await waitFor(read, s => s.paused === true, 3000);
+    check(
+        'Instagram control: with background playback off, the page pauses when hidden',
+        state.realVisibility === 'hidden' && state.paused === true,
+    );
 }
 
 async function main() {
@@ -331,6 +508,7 @@ async function main() {
             control.evaluate(`(async () => {
                 const [tab] = await chrome.tabs.query({ url: 'https://www.facebook.com/*' });
                 await chrome.tabs.update(tab.id, { active: true });
+                await chrome.windows.update(tab.windowId, { focused: true });
             })()`);
 
         // Records which tab or window changes while the Reels tab should stay hidden. Printed if that check fails.
@@ -340,6 +518,12 @@ async function main() {
             chrome.tabs.onActivated.addListener(info => log('tab-activated', info.tabId));
             chrome.windows.onFocusChanged.addListener(id => log('window-focus', id));
         })()`);
+
+        // E2E_ONLY=instagram runs just the Instagram checks (faster while working on that adapter).
+        if (process.env.E2E_ONLY === 'instagram') {
+            await runInstagramChecks({ client, control, setSettings, hideTab: hideReels });
+            return report();
+        }
 
         // ---- Run 1: background playback on ----
         await setSettings(true);
@@ -629,10 +813,17 @@ async function main() {
         await showReels();
         await client.send('Target.closeTarget', { targetId: reels.targetId });
         await runYoutubeChecks({ client, control, setSettings, hideTab: hideReels });
+
+        // ---- Instagram Reels ----
+        await runInstagramChecks({ client, control, setSettings, hideTab: hideReels });
     } finally {
         await stop();
     }
 
+    report();
+}
+
+function report() {
     const failed = results.filter(result => !result.passed).length;
     console.log(`\n${results.length - failed}/${results.length} checks passed`);
     process.exitCode = failed === 0 ? 0 : 1;

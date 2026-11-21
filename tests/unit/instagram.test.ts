@@ -63,6 +63,13 @@ describe('instagram dom', () => {
         expect(findReelVideo(document)).toBe(current);
     });
 
+    it('takes the video that covers the screen, even when another one still plays', () => {
+        const { current, next } = renderFeed();
+        // A video that is barely on screen plays, e.g. Instagram replaying a finished video on its way out.
+        Object.defineProperty(next, 'paused', { value: false, configurable: true });
+        expect(findReelVideo(document)).toBe(current);
+    });
+
     it('finds the Next and Previous buttons by their accessible name', () => {
         renderFeed();
         expect(findNavigationButton(document, 'next')?.getAttribute('aria-label')).toBe('Navigate to next Reel');

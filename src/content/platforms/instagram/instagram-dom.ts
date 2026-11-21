@@ -21,10 +21,14 @@ const NAVIGATION_LABELS: Readonly<Record<Direction, string>> = {
 const loadedVideos = (doc: Document): HTMLVideoElement[] =>
     [...doc.querySelectorAll<HTMLVideoElement>('video')].filter(video => video.getAttribute('src'));
 
-/** The video of the Reel on screen. Call it after the URL has changed. */
+/**
+ * The video of the Reel on screen: the one that covers most of the viewport. Playing does not count, because
+ * Instagram replays a finished video and keeps the old one playing until it has paused it, so the old video can
+ * be "playing" while the next one is already on screen.
+ */
 export function findReelVideo(doc: Document): HTMLVideoElement | null {
     const view = doc.defaultView;
-    return view ? pickActiveVideo(loadedVideos(doc), view) : null;
+    return view ? pickActiveVideo(loadedVideos(doc), view, false) : null;
 }
 
 /**
@@ -38,7 +42,6 @@ export function moveToNeighbour(doc: Document, direction: Direction): boolean {
     const videos = loadedVideos(doc);
     const neighbour = videos[videos.indexOf(current) + (direction === 'next' ? 1 : -1)];
     if (!neighbour) return false;
-    // Stopping the old video makes the neighbour, which is now on screen, the current one.
     current.pause();
     neighbour.scrollIntoView({ block: 'center', behavior: 'instant' });
     return true;

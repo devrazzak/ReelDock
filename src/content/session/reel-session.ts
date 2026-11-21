@@ -313,6 +313,7 @@ export class ReelSession {
 
         const fromReel = this.getCurrentReelId();
         const fromVideo = this.getCurrentVideo();
+        const fromSource = fromVideo?.currentSrc ?? '';
         const stage = this.stage?.isOpen ? this.stage : null;
         // Facebook's page must have its video element back before it switches cards.
         stage?.release(direction);
@@ -328,7 +329,7 @@ export class ReelSession {
                     break;
                 }
             }
-            if (usedStrategy && !(await this.handOverPlayback(fromVideo))) {
+            if (usedStrategy && !(await this.handOverPlayback(fromVideo, fromSource))) {
                 failure = 'Moved to the next video, but it did not start.';
                 usedStrategy = null;
             }
@@ -357,13 +358,14 @@ export class ReelSession {
      * keeping the user's mute and volume choice from the previous Reel. With the mini player open,
      * the new video is moved into it and started there.
      */
-    private async handOverPlayback(previous: HTMLVideoElement | null): Promise<boolean> {
+    private async handOverPlayback(previous: HTMLVideoElement | null, previousSource: string): Promise<boolean> {
         const reelId = this.getCurrentReelId();
         // The URL can change before the site has moved on from the old video (Instagram scrolls first and pauses
-        // the old video a moment later), so the old video is not the new Reel's video yet.
+        // the old video a moment later). Some sites reuse one element for every video (YouTube): there the new
+        // video is the same element with another source.
         const next = await this.waitForValue(() => {
             const video = reelId ? this.platform.findReelVideo(this.doc, reelId) : null;
-            return video !== previous ? video : null;
+            return video !== previous || video?.currentSrc !== previousSource ? video : null;
         });
         if (!next || this.disposed) return false;
         const stage = this.stage?.isOpen ? this.stage : null;
