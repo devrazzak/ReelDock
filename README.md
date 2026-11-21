@@ -4,6 +4,8 @@ A Chrome extension (Manifest V3) that keeps Facebook Reels playing while you wor
 moves to the next Reel automatically when one finishes, and can show Reels in a floating mini player
 (scroll, drag or arrow keys to change Reel). Works in Chrome 116+ on macOS, Windows, Linux and ChromeOS.
 
+**[Install from the Chrome Web Store](https://chromewebstore.google.com/detail/mfonmdebpphmglhajkcamcbaplaghnjk)**
+
 - Uses Facebook's own `<video>` elements and its own "Next Card" button. Nothing is downloaded,
   re-streamed, faked or looped.
 - Popup built with [`@rax-ds/ui`](https://www.npmjs.com/package/@rax-ds/ui) (React 19, Tailwind CSS v4).
