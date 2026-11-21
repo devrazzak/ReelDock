@@ -19,7 +19,7 @@ export interface LaunchButtonTheme {
     color: string;
     /** Opacity at rest; the button is fully opaque on hover and focus. */
     restingOpacity: number;
-    /** Colours used when the page is in dark mode (`<html dark>`), if the site has one. */
+    /** Colours used when the page is in dark mode (`<html dark>` on YouTube, `<html class="__fb-dark-mode">` on Meta sites), if the site has one. */
     dark?: { background: string; color: string };
     /**
      * Where to sit while the site's "next" button is not on the page yet (Shorts and Reels load slowly),
@@ -73,6 +73,8 @@ const SITE_THEMES: Record<string, Partial<LaunchButtonTheme>> = {
         shadow: '0 4px 12px rgb(0 0 0 / 0.15)',
         color: '#000',
         restingOpacity: 1,
+        // Instagram's own arrows in dark mode (measured on a screenshot, Nov 2026): dark grey circle, white glyph.
+        dark: { background: 'rgb(33 35 40)', color: '#fff' },
         fallbackPosition: { right: 39, fromCenter: 8 + 44 + 16 },
     },
 };

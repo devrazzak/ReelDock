@@ -22,7 +22,7 @@ button:hover, button:focus-visible, button[aria-pressed='true'] { opacity: 1; }
 button:active { transform: scale(0.96); }
 button:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
 svg { width: ${iconSize}px; height: ${iconSize}px; display: block; }
-${dark ? `:host-context(html[dark]) button { background: ${dark.background}; color: ${dark.color}; }` : ''}
+${dark ? `:host-context(html[dark]) button, :host-context(html.__fb-dark-mode) button { background: ${dark.background}; color: ${dark.color}; }` : ''}
 `;
 
 // Picture-in-picture glyph. Facebook's own buttons draw a ring around their icon, so some themes add one.
