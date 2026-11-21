@@ -9,24 +9,28 @@
  * Rendered in a closed shadow root so the page's CSS and ours cannot affect each other.
  */
 import { createElement, createSvg, type IconShape } from '../dom/build';
-import { DEFAULT_THEME, type LaunchButtonTheme } from './launch-button-theme';
+import { CORNER_MARGIN, DEFAULT_THEME, type LaunchButtonTheme } from './launch-button-theme';
 
-const buildCss = ({ size, background, color, restingOpacity }: LaunchButtonTheme) => `
+const buildCss = ({ size, iconSize, background, color, restingOpacity, dark }: LaunchButtonTheme) => `
 :host { all: initial; position: fixed; z-index: 2147483647; }
 button {
     width: ${size}px; height: ${size}px; border-radius: 50%; padding: 0; border: 0; cursor: pointer;
-    display: block; background: ${background}; color: ${color}; opacity: ${restingOpacity};
+    display: grid; place-items: center; background: ${background}; color: ${color}; opacity: ${restingOpacity};
     transition: opacity 0.1s linear, transform 0.3s;
 }
 button:hover, button:focus-visible, button[aria-pressed='true'] { opacity: 1; }
 button:active { transform: scale(0.96); }
-button:focus-visible { outline: 2px solid ${color}; outline-offset: 2px; }
-svg { width: ${size}px; height: ${size}px; display: block; }
+button:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
+svg { width: ${iconSize}px; height: ${iconSize}px; display: block; }
+${dark ? `:host-context(html[dark]) button { background: ${dark.background}; color: ${dark.color}; }` : ''}
 `;
 
-// Ring like Facebook's icons, with a picture-in-picture glyph in the middle.
-const ICON: IconShape[] = [
-    { tag: 'circle', attrs: { cx: '12', cy: '12', r: '10.5', fill: 'none', stroke: 'currentColor', 'stroke-width': '2' } },
+// Picture-in-picture glyph. Facebook's own buttons draw a ring around their icon, so some themes add one.
+const RING: IconShape = {
+    tag: 'circle',
+    attrs: { cx: '12', cy: '12', r: '10.5', fill: 'none', stroke: 'currentColor', 'stroke-width': '2' },
+};
+const GLYPH: IconShape[] = [
     { tag: 'rect', attrs: { x: '7', y: '8.25', width: '10', height: '7.5', rx: '1.25', fill: 'none', stroke: 'currentColor', 'stroke-width': '1.5' } },
     { tag: 'rect', attrs: { x: '11.5', y: '11.75', width: '4', height: '2.75', rx: '0.5', fill: 'currentColor' } },
 ];
@@ -48,7 +52,7 @@ export class LaunchButton {
         const shadow = this.host.attachShadow({ mode: 'closed' });
         const style = createElement(doc, 'style');
         style.textContent = buildCss(theme);
-        this.button = createElement(doc, 'button', { type: 'button' }, [createSvg(doc, ICON)]);
+        this.button = createElement(doc, 'button', { type: 'button' }, [createSvg(doc, theme.ring ? [RING, ...GLYPH] : GLYPH)]);
         shadow.append(style, this.button);
         this.button.addEventListener('click', onClick);
         doc.defaultView?.addEventListener('resize', () => this.place());
@@ -73,14 +77,19 @@ export class LaunchButton {
     private place(): void {
         const rect = this.getAnchor()?.getBoundingClientRect();
         const { style } = this.host;
+        const { size, gapBelowAnchor, fallbackPosition } = this.theme;
+        const view = this.host.ownerDocument.defaultView;
+        style.left = style.right = style.top = style.bottom = '';
+
         if (rect && rect.width > 0) {
-            style.left = `${Math.round(rect.left + rect.width / 2 - this.theme.size / 2)}px`;
-            style.top = `${Math.round(rect.bottom + this.theme.gapBelowAnchor)}px`;
-            style.bottom = '';
+            style.left = `${Math.round(rect.left + rect.width / 2 - size / 2)}px`;
+            style.top = `${Math.round(rect.bottom + gapBelowAnchor)}px`;
+        } else if (fallbackPosition && view) {
+            style.right = `${fallbackPosition.right}px`;
+            style.top = `${Math.round(view.innerHeight / 2 + fallbackPosition.fromCenter)}px`;
         } else {
-            style.left = `${this.theme.fallbackMargin}px`;
-            style.top = '';
-            style.bottom = `${this.theme.fallbackMargin}px`;
+            style.left = `${CORNER_MARGIN}px`;
+            style.bottom = `${CORNER_MARGIN}px`;
         }
     }
 }
