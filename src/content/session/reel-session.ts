@@ -1,6 +1,5 @@
-import { findMuteButton, findReelVideo, type Direction } from '@/content/reels/reel-dom';
+import type { Direction, PlatformAdapter } from '@/content/platforms/platform-adapter';
 import type { NavigationStrategy } from '@/content/reels/reel-navigator';
-import { getReelId, isReelsPage } from '@/content/reels/reel-route';
 import { findActiveVideo } from '@/content/video/active-video';
 import { isLoopRestart } from '@/content/video/end-detection';
 import type { PlayerCommand } from '@/shared/messages';
@@ -9,6 +8,8 @@ import { INITIAL_STATUS, type NavigationRecord, type PlaybackStatus, type VideoS
 
 export interface ReelSessionOptions {
     doc: Document;
+    /** The site this page belongs to; all site-specific DOM lookups go through it. */
+    platform: PlatformAdapter;
     strategies: NavigationStrategy[];
     getSettings: () => ExtensionSettings;
     onStatus: (status: PlaybackStatus) => void;
@@ -53,6 +54,7 @@ const MEDIA_EVENTS = ['play', 'playing', 'pause', 'ended', 'timeupdate', 'volume
 export class ReelSession {
     private readonly doc: Document;
     private readonly view: Window;
+    private readonly platform: PlatformAdapter;
     private readonly options: Required<ReelSessionOptions>;
     private readonly lastTimes = new WeakMap<HTMLVideoElement, number>();
     private readonly changeWaiters = new Set<() => void>();
@@ -73,6 +75,7 @@ export class ReelSession {
         if (!view) throw new Error('ReelSession needs a document attached to a window');
         this.doc = options.doc;
         this.view = view;
+        this.platform = options.platform;
         this.options = {
             isTabHidden: () => options.doc.hidden,
             navigationTimeoutMs: 8000,
@@ -174,7 +177,7 @@ export class ReelSession {
      */
     private toggleMute(): void {
         const reelId = this.getCurrentReelId();
-        const button = reelId ? findMuteButton(this.doc, reelId) : null;
+        const button = reelId ? this.platform.findMuteButton(this.doc, reelId) : null;
         if (button) {
             button.click();
             return;
@@ -330,7 +333,7 @@ export class ReelSession {
      */
     private async handOverPlayback(previous: HTMLVideoElement | null): Promise<boolean> {
         const reelId = this.getCurrentReelId();
-        const next = await this.waitForValue(() => (reelId ? findReelVideo(this.doc, reelId) : null));
+        const next = await this.waitForValue(() => (reelId ? this.platform.findReelVideo(this.doc, reelId) : null));
         if (!next || this.disposed) return false;
         const stage = this.stage?.isOpen ? this.stage : null;
 
@@ -390,11 +393,11 @@ export class ReelSession {
     }
 
     private onReelsPage(): boolean {
-        return isReelsPage(this.view.location.pathname);
+        return this.platform.isReelsPage(this.view.location.pathname);
     }
 
     private getCurrentReelId(): string | null {
-        return getReelId(this.view.location.pathname);
+        return this.platform.getReelId(this.view.location.pathname);
     }
 
     /**
@@ -404,7 +407,7 @@ export class ReelSession {
     getCurrentVideo(): HTMLVideoElement | null {
         if (this.stage?.video) return this.stage.video;
         const reelId = this.getCurrentReelId();
-        return (reelId ? findReelVideo(this.doc, reelId) : null) ?? findActiveVideo(this.doc);
+        return (reelId ? this.platform.findReelVideo(this.doc, reelId) : null) ?? findActiveVideo(this.doc);
     }
 
     private getVideoState(video: HTMLVideoElement | null): VideoState {

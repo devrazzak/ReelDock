@@ -1,6 +1,6 @@
-import { findNavigationButton, type Direction } from '@/content/reels/reel-dom';
+import type { Direction, PlatformAdapter } from '@/content/platforms/platform-adapter';
 
-/** One way of asking Facebook to move to another Reel. Returns false when it could not be attempted. */
+/** One way of asking the site to move to another Reel. Returns false when it could not be attempted. */
 export interface NavigationStrategy {
     name: string;
     trigger(direction: Direction): boolean;
@@ -22,13 +22,14 @@ function findScrollContainer(start: Element | null): HTMLElement | null {
  */
 export function createNavigationStrategies(
     doc: Document,
+    platform: PlatformAdapter,
     getCurrentVideo: () => HTMLVideoElement | null,
 ): NavigationStrategy[] {
     return [
         {
             name: 'navigation-button',
             trigger(direction) {
-                const button = findNavigationButton(doc, direction);
+                const button = platform.findNavigationButton(doc, direction);
                 button?.click();
                 return button !== null;
             },

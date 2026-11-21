@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
+import { facebookAdapter } from '@/content/platforms/facebook';
 import { createNavigationStrategies } from '@/content/reels/reel-navigator';
 import { ReelSession, type VideoStage } from '@/content/session/reel-session';
 import { findActiveVideo } from '@/content/video/active-video';
@@ -32,7 +33,8 @@ function setup(options: SetupOptions = {}): Setup {
     const statuses: PlaybackStatus[] = [];
     const session = new ReelSession({
         doc: document,
-        strategies: createNavigationStrategies(document, () => findActiveVideo(document)),
+        platform: facebookAdapter,
+        strategies: createNavigationStrategies(document, facebookAdapter, () => findActiveVideo(document)),
         getSettings: () => settings,
         onStatus: status => statuses.push(status),
         isTabHidden: () => options.hidden ?? true,

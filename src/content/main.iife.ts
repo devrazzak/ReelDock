@@ -1,6 +1,6 @@
 import { LaunchButton } from '@/content/mini-player/launch-button';
 import { MiniPlayer } from '@/content/mini-player/mini-player';
-import { findNavigationButton } from '@/content/reels/reel-dom';
+import { facebookAdapter } from '@/content/platforms/facebook';
 import { createNavigationStrategies } from '@/content/reels/reel-navigator';
 import { ReelSession } from '@/content/session/reel-session';
 import { BACKGROUND_ATTRIBUTE } from '@/shared/dom-contract';
@@ -26,7 +26,8 @@ function main(): void {
 
     const session = new ReelSession({
         doc: document,
-        strategies: createNavigationStrategies(document, () => session.getCurrentVideo()),
+        platform: facebookAdapter,
+        strategies: createNavigationStrategies(document, facebookAdapter, () => session.getCurrentVideo()),
         getSettings: () => settings,
         onStatus: (status: PlaybackStatus) => {
             // Reloading the extension orphans this script; the fresh copy arrives with the next page load.
@@ -107,7 +108,7 @@ function createMiniPlayer(session: ReelSession): LaunchButton {
 
     const button = new LaunchButton(
         document,
-        () => findNavigationButton(document, 'next'),
+        () => facebookAdapter.findNavigationButton(document, 'next'),
         () => {
             if (miniPlayer.isOpen) miniPlayer.close();
             else void miniPlayer.open(session.getCurrentVideo()).catch(() => undefined);

@@ -1,5 +1,5 @@
 import { MINI_PLAYER_CSS } from '@/content/mini-player/mini-player.styles';
-import type { Direction } from '@/content/reels/reel-dom';
+import type { Direction } from '@/content/platforms/platform-adapter';
 import type { VideoStage } from '@/content/session/reel-session';
 
 export interface MiniPlayerHandlers {
