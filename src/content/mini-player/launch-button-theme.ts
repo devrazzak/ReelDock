@@ -1,6 +1,6 @@
 /**
  * Look and place of the launch button. DEFAULT_THEME suits any page; a site only lists what it changes.
- * To restyle the button for a site (or add Instagram later), add an entry to SITE_THEMES keyed by the
+ * To restyle the button for a site, add an entry to SITE_THEMES keyed by the
  * platform adapter's id.
  */
 export interface LaunchButtonTheme {
@@ -13,6 +13,8 @@ export interface LaunchButtonTheme {
     /** Space between the site's own "next" button and ours, in px. */
     gapBelowAnchor: number;
     background: string;
+    /** CSS box-shadow of the button, if the site's own buttons float above the page. */
+    shadow?: string;
     /** Colour of the icon. */
     color: string;
     /** Opacity at rest; the button is fully opaque on hover and focus. */
@@ -60,6 +62,18 @@ const SITE_THEMES: Record<string, Partial<LaunchButtonTheme>> = {
         restingOpacity: 1,
         dark: { background: 'rgb(255 255 255 / 0.1)', color: '#f1f1f1' },
         fallbackPosition: { right: 24, fromCenter: 44 + 56 + 16 },
+    },
+    // Matches Instagram's own arrows (measured on instagram.com, Nov 2026): 44 px white circle with a soft shadow,
+    // black glyph, 16 px apart. Its "next" button sits 39 px from the right edge and 8 px below the window's middle.
+    instagram: {
+        size: 44,
+        iconSize: 48,
+        ring: false,
+        background: '#fff',
+        shadow: '0 4px 12px rgb(0 0 0 / 0.15)',
+        color: '#000',
+        restingOpacity: 1,
+        fallbackPosition: { right: 39, fromCenter: 8 + 44 + 16 },
     },
 };
 

@@ -11,11 +11,11 @@
 import { createElement, createSvg, type IconShape } from '../dom/build';
 import { CORNER_MARGIN, DEFAULT_THEME, type LaunchButtonTheme } from './launch-button-theme';
 
-const buildCss = ({ size, iconSize, background, color, restingOpacity, dark }: LaunchButtonTheme) => `
+const buildCss = ({ size, iconSize, background, shadow, color, restingOpacity, dark }: LaunchButtonTheme) => `
 :host { all: initial; position: fixed; z-index: 2147483647; }
 button {
     width: ${size}px; height: ${size}px; border-radius: 50%; padding: 0; border: 0; cursor: pointer;
-    display: grid; place-items: center; background: ${background}; color: ${color}; opacity: ${restingOpacity};
+    display: grid; place-items: center; background: ${background}; box-shadow: ${shadow ?? 'none'}; color: ${color}; opacity: ${restingOpacity};
     transition: opacity 0.1s linear, transform 0.3s;
 }
 button:hover, button:focus-visible, button[aria-pressed='true'] { opacity: 1; }
