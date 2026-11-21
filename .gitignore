@@ -5,5 +5,5 @@ dist
 .DS_Store
 tests/e2e/.profile
 tests/live/dist
-tests/e2e/popup.png
+tests/e2e/*.png
 release
