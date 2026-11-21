@@ -31,7 +31,19 @@ const RING: IconShape = {
     attrs: { cx: '12', cy: '12', r: '10.5', fill: 'none', stroke: 'currentColor', 'stroke-width': '2' },
 };
 const GLYPH: IconShape[] = [
-    { tag: 'rect', attrs: { x: '7', y: '8.25', width: '10', height: '7.5', rx: '1.25', fill: 'none', stroke: 'currentColor', 'stroke-width': '1.5' } },
+    {
+        tag: 'rect',
+        attrs: {
+            x: '7',
+            y: '8.25',
+            width: '10',
+            height: '7.5',
+            rx: '1.25',
+            fill: 'none',
+            stroke: 'currentColor',
+            'stroke-width': '1.5',
+        },
+    },
     { tag: 'rect', attrs: { x: '11.5', y: '11.75', width: '4', height: '2.75', rx: '0.5', fill: 'currentColor' } },
 ];
 
@@ -52,7 +64,9 @@ export class LaunchButton {
         const shadow = this.host.attachShadow({ mode: 'closed' });
         const style = createElement(doc, 'style');
         style.textContent = buildCss(theme);
-        this.button = createElement(doc, 'button', { type: 'button' }, [createSvg(doc, theme.ring ? [RING, ...GLYPH] : GLYPH)]);
+        this.button = createElement(doc, 'button', { type: 'button' }, [
+            createSvg(doc, theme.ring ? [RING, ...GLYPH] : GLYPH),
+        ]);
         shadow.append(style, this.button);
         this.button.addEventListener('click', onClick);
         doc.defaultView?.addEventListener('resize', () => this.place());

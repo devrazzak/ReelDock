@@ -135,9 +135,7 @@
                 const index = Math.round(feed.scrollTop / feed.clientHeight) + step;
                 feed.children[index]?.scrollIntoView({ block: 'center', behavior: 'smooth' });
             };
-            document
-                .querySelector('[aria-label="Navigate to next Reel"]')
-                .addEventListener('click', () => scrollBy(1));
+            document.querySelector('[aria-label="Navigate to next Reel"]').addEventListener('click', () => scrollBy(1));
             document
                 .querySelector('[aria-label="Navigate to previous Reel"]')
                 .addEventListener('click', () => scrollBy(-1));

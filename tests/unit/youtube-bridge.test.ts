@@ -12,12 +12,12 @@ const data = (index: unknown) => ({
 });
 
 describe('findNeighbourShortId', () => {
-    it('returns the next and previous Short in YouTube\'s list', () => {
+    it("returns the next and previous Short in YouTube's list", () => {
         expect(findNeighbourShortId(data(1), 'next')).toBe('ccc');
         expect(findNeighbourShortId(data(1), 'previous')).toBe('aaa');
     });
 
-    it('goes by the Short on screen when YouTube\'s index is stale (hidden tab)', () => {
+    it("goes by the Short on screen when YouTube's index is stale (hidden tab)", () => {
         // Index still says 0 although the page already moved to 'bbb'.
         expect(findNeighbourShortId(data(0), 'next', 'bbb')).toBe('ccc');
         expect(findNeighbourShortId(data(0), 'previous', 'bbb')).toBe('aaa');
@@ -35,7 +35,9 @@ describe('findNeighbourShortId', () => {
     it('returns null when YouTube changed the shape of its data', () => {
         expect(findNeighbourShortId(undefined, 'next')).toBeNull();
         expect(findNeighbourShortId(data('1'), 'next')).toBeNull();
-        expect(findNeighbourShortId({ currentPlayerIndex: 0, shortsProcessedSequence: [entry('a'), {}] }, 'next')).toBeNull();
+        expect(
+            findNeighbourShortId({ currentPlayerIndex: 0, shortsProcessedSequence: [entry('a'), {}] }, 'next'),
+        ).toBeNull();
     });
 
     it('refuses ids that are not plain video ids', () => {

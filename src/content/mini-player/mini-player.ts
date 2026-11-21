@@ -26,15 +26,30 @@ const CLICK_TOLERANCE = 10;
 const path = (d: string): IconShape => ({ tag: 'path', attrs: { d } });
 const label10: IconShape = {
     tag: 'text',
-    attrs: { x: '12', y: '16.5', 'font-size': '7', 'font-weight': '700', 'text-anchor': 'middle', 'font-family': 'system-ui,sans-serif' },
+    attrs: {
+        x: '12',
+        y: '16.5',
+        'font-size': '7',
+        'font-weight': '700',
+        'text-anchor': 'middle',
+        'font-family': 'system-ui,sans-serif',
+    },
     text: '10',
 };
 
 const ICONS = {
     previous: [path('M12 7.6 5.3 14.3l1.4 1.4L12 10.4l5.3 5.3 1.4-1.4z')],
     next: [path('M12 16.4 5.3 9.7l1.4-1.4 5.3 5.3 5.3-5.3 1.4 1.4z')],
-    sound: [path('M4 9v6h4l5 4V5L8 9zm11.5 3a3.5 3.5 0 0 0-2-3.2v6.4a3.5 3.5 0 0 0 2-3.2zm-2-7.8v2.1a7 7 0 0 1 0 11.4v2.1a9 9 0 0 0 0-15.6z')],
-    muted: [path('M4 9v6h4l5 4V5L8 9zm16.6 3 2.1-2.1-1.4-1.4-2.1 2.1-2.1-2.1-1.4 1.4 2.1 2.1-2.1 2.1 1.4 1.4 2.1-2.1 2.1 2.1 1.4-1.4z')],
+    sound: [
+        path(
+            'M4 9v6h4l5 4V5L8 9zm11.5 3a3.5 3.5 0 0 0-2-3.2v6.4a3.5 3.5 0 0 0 2-3.2zm-2-7.8v2.1a7 7 0 0 1 0 11.4v2.1a9 9 0 0 0 0-15.6z',
+        ),
+    ],
+    muted: [
+        path(
+            'M4 9v6h4l5 4V5L8 9zm16.6 3 2.1-2.1-1.4-1.4-2.1 2.1-2.1-2.1-1.4 1.4 2.1 2.1-2.1 2.1 1.4 1.4 2.1-2.1 2.1 2.1 1.4-1.4z',
+        ),
+    ],
     play: [path('M8 5v14l11-7z')],
     pause: [path('M6 5h4v14H6zm8 0h4v14h-4z')],
     back10: [path('M12 5V1L7 6l5 5V7a6 6 0 1 1-6 6H4a8 8 0 1 0 8-8z'), label10],
@@ -221,27 +236,34 @@ export class MiniPlayer implements VideoStage {
         const div = (className: string, children: Node[] = [], attrs: Record<string, string> = {}) =>
             createElement(doc, 'div', { class: className, ...attrs }, children);
         const button = (action: string, label: string, icon: IconShape[], className = '') =>
-            createElement(doc, 'button', { type: 'button', 'data-action': action, 'aria-label': label, ...(className && { class: className }) }, [
-                createSvg(doc, icon),
-            ]);
+            createElement(
+                doc,
+                'button',
+                { type: 'button', 'data-action': action, 'aria-label': label, ...(className && { class: className }) },
+                [createSvg(doc, icon)],
+            );
 
         doc.body.replaceChildren(
-            div('player paused', [
-                div('stage'),
-                div('spinner', [], { role: 'status', 'aria-label': 'Loading next video' }),
-                div('paused-icon', [createSvg(doc, ICONS.play)]),
-                div('controls side', [
-                    button('previous', 'Previous video', ICONS.previous),
-                    button('next', 'Next video', ICONS.next),
-                    button('mute', 'Mute', ICONS.sound),
-                ]),
-                div('controls bottom', [
-                    button('back', 'Back 10 seconds', ICONS.back10),
-                    button('play', 'Pause', ICONS.pause, 'large'),
-                    button('forward', 'Forward 10 seconds', ICONS.forward10),
-                ]),
-                div('progress', [div('progress-bar')]),
-            ], { role: 'region', 'aria-label': 'ReelDock mini player' }),
+            div(
+                'player paused',
+                [
+                    div('stage'),
+                    div('spinner', [], { role: 'status', 'aria-label': 'Loading next video' }),
+                    div('paused-icon', [createSvg(doc, ICONS.play)]),
+                    div('controls side', [
+                        button('previous', 'Previous video', ICONS.previous),
+                        button('next', 'Next video', ICONS.next),
+                        button('mute', 'Mute', ICONS.sound),
+                    ]),
+                    div('controls bottom', [
+                        button('back', 'Back 10 seconds', ICONS.back10),
+                        button('play', 'Pause', ICONS.pause, 'large'),
+                        button('forward', 'Forward 10 seconds', ICONS.forward10),
+                    ]),
+                    div('progress', [div('progress-bar')]),
+                ],
+                { role: 'region', 'aria-label': 'ReelDock mini player' },
+            ),
         );
 
         const find = (selector: string) => {
