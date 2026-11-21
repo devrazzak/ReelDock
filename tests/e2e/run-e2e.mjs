@@ -157,6 +157,14 @@ async function main() {
                 await chrome.tabs.update(tab.id, { active: true });
             })()`);
 
+        // Records which tab or window changes while the Reels tab should stay hidden. Printed if that check fails.
+        await control.evaluate(`(() => {
+            globalThis.__tabEvents = [];
+            const log = (event, detail) => __tabEvents.push({ at: Date.now(), event, detail });
+            chrome.tabs.onActivated.addListener(info => log('tab-activated', info.tabId));
+            chrome.windows.onFocusChanged.addListener(id => log('window-focus', id));
+        })()`);
+
         // ---- Run 1: background playback on ----
         await setSettings(true);
         const reels = await openTab(client);
@@ -179,14 +187,32 @@ async function main() {
         // Fixture Reels are 3 s long. Watch ~12 s while the tab stays hidden.
         const visited = [state.id];
         let alwaysHidden = true;
+        const visibilityChanges = [];
+        let lastVisibility = state.realVisibility;
+        const loopStart = Date.now();
         for (let i = 0; i < 48; i++) {
             await sleep(250);
             const now = await readReels();
             alwaysHidden &&= now.realVisibility === 'hidden';
+            if (now.realVisibility !== lastVisibility) {
+                visibilityChanges.push(`${Date.now() - loopStart}ms ${lastVisibility} -> ${now.realVisibility}`);
+                lastVisibility = now.realVisibility;
+            }
             if (visited.at(-1) !== now.id) visited.push(now.id);
         }
         state = await readReels();
-        check('Tab stayed hidden for the whole run', alwaysHidden);
+        check('Tab stayed hidden for the whole run', alwaysHidden, visibilityChanges.join(', '));
+        if (!alwaysHidden) {
+            const events = await control.evaluate('__tabEvents');
+            const tabs = await control.evaluate(
+                `chrome.tabs.query({}).then(all => all.map(t => ({ id: t.id, active: t.active, windowId: t.windowId, url: t.url.slice(0, 50) })))`,
+            );
+            console.log(
+                '  loop started at 0ms; events:',
+                JSON.stringify(events.map(e => ({ ...e, at: e.at - loopStart }))),
+            );
+            console.log('  tabs now:', JSON.stringify(tabs));
+        }
         check(
             'Auto next moved through every Reel while hidden',
             visited.join(',') === '1001,1002,1003,1004',
