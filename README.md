@@ -1,4 +1,4 @@
-# Reels Background Player
+# ReelDock – Facebook Reels Auto Scroll & Mini Player
 
 A Chrome extension (Manifest V3) that keeps Facebook Reels playing while you work in other tabs,
 moves to the next Reel automatically when one finishes, and can show Reels in a floating mini player
@@ -83,7 +83,7 @@ content-script changes).
 2. Switch to any other tab. The Reel keeps playing and the next Reel starts when it ends.
 3. The popup shows playback state, whether the tab is in the background, the current Reel and the last
    auto next, and has Previous / Play-Pause / Next controls.
-4. **Mini player:** click **Mini player** at the bottom right of the Reels page. A floating window opens
+4. **Mini player:** click the **⧉** button under Facebook's up/down arrows on the right of the Reels page. A floating window opens
    on top of every app; move and resize it anywhere. Inside it:
 
     | Input                              | Action                                            |
@@ -212,6 +212,6 @@ remote code.
 
 ## Publish
 
-`pnpm package` builds `release/reels-background-player-<version>.zip`. Store listing text, permission
+`pnpm package` builds `release/reeldock-<version>.zip`. Store listing text, permission
 justifications and the privacy policy are in [`docs/chrome-web-store.md`](docs/chrome-web-store.md) and
 [`docs/privacy-policy.md`](docs/privacy-policy.md).

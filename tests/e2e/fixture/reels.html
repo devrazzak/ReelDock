@@ -23,17 +23,33 @@
             video {
                 height: 90vh;
             }
+            /* Like Facebook: round 48 px up/down buttons at the right edge, mute at the top-left. */
             #controls {
                 position: fixed;
                 right: 16px;
                 top: 40%;
                 display: flex;
                 flex-direction: column;
-                gap: 8px;
+                gap: 16px;
             }
             #controls div {
-                background: #eee;
-                padding: 8px;
+                width: 48px;
+                height: 48px;
+                border-radius: 50%;
+                border: 1px solid #888;
+                color: #ddd;
+                display: grid;
+                place-items: center;
+                cursor: pointer;
+            }
+            #unmute {
+                position: fixed;
+                left: 16px;
+                top: 16px;
+                color: #fff;
+                background: #333;
+                padding: 8px 12px;
+                border-radius: 6px;
                 cursor: pointer;
             }
         </style>
@@ -50,10 +66,10 @@
         -->
         <div id="feed"></div>
         <div id="controls">
-            <div role="button" aria-label="Previous Card">Up</div>
-            <div role="button" aria-label="Next Card">Down</div>
-            <div role="button" aria-label="Unmute" id="unmute">Unmute</div>
+            <div role="button" aria-label="Previous Card">&#8963;</div>
+            <div role="button" aria-label="Next Card">&#8964;</div>
         </div>
+        <div role="button" aria-label="Unmute" id="unmute">Sound</div>
         <script>
             const REELS = ['1001', '1002', '1003', '1004'];
             const state = { muted: true, active: null };

@@ -1,8 +1,8 @@
-# Privacy policy – Reels Background Player
+# Privacy policy – ReelDock
 
 _Last updated: 21 November 2026_
 
-Reels Background Player is a Chrome extension that keeps Facebook Reels playing in the background,
+ReelDock is a Chrome extension that keeps Facebook Reels playing in the background,
 moves to the next Reel automatically, and offers a floating mini player.
 
 **What it collects:** nothing. The extension does not collect, store, transmit, sell or share personal

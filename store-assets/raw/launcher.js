@@ -1,0 +1,1 @@
+window.LAUNCHER = {"left":1215,"top":452,"width":48,"height":48};

@@ -208,13 +208,13 @@ export class MiniPlayer implements VideoStage {
     }
 
     private build(doc: Document): void {
-        doc.title = 'Reels mini player';
+        doc.title = 'ReelDock';
         const style = doc.createElement('style');
         style.textContent = MINI_PLAYER_CSS;
         doc.head.append(style);
 
         doc.body.innerHTML = `
-            <div class="player paused" role="region" aria-label="Reels mini player">
+            <div class="player paused" role="region" aria-label="ReelDock mini player">
                 <div class="stage"></div>
                 <div class="spinner" role="status" aria-label="Loading next Reel"></div>
                 <div class="paused-icon">${svg(ICONS.play)}</div>

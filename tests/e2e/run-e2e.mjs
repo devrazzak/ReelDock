@@ -273,8 +273,22 @@ async function main() {
         await reels.send('Page.reload');
         await waitFor(readReels, s => s.paused === false);
         await reels.click('[aria-label="Unmute"]');
-        const viewport = await reels.evaluate('({ w: innerWidth, h: innerHeight })');
-        await reels.clickAt(viewport.w - 70, viewport.h - 43);
+        const launcher = await reels.evaluate(`(() => {
+            const host = document.querySelector('reeldock-launcher').getBoundingClientRect();
+            const next = document.querySelector('[aria-label="Next Card"]').getBoundingClientRect();
+            return {
+                x: host.left + host.width / 2,
+                y: host.top + host.height / 2,
+                gap: host.top - next.bottom,
+                dx: host.left + host.width / 2 - (next.left + next.width / 2),
+            };
+        })()`);
+        check(
+            'Mini player button sits right under the next button',
+            Math.abs(launcher.gap - 16) <= 1 && Math.abs(launcher.dx) <= 1,
+            JSON.stringify(launcher),
+        );
+        await reels.clickAt(launcher.x, launcher.y);
         let mini = await waitFor(readMini, m => m.open && m.paused === false);
         check(
             'Mini player opens from the page button and plays the Reel',

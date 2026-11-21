@@ -1,5 +1,6 @@
 import { LaunchButton } from '@/content/mini-player/launch-button';
 import { MiniPlayer } from '@/content/mini-player/mini-player';
+import { findNavigationButton } from '@/content/reels/reel-dom';
 import { createNavigationStrategies } from '@/content/reels/reel-navigator';
 import { ReelSession } from '@/content/session/reel-session';
 import { BACKGROUND_ATTRIBUTE } from '@/shared/dom-contract';
@@ -104,10 +105,14 @@ function createMiniPlayer(session: ReelSession): LaunchButton {
     });
     session.attachStage(miniPlayer);
 
-    const button = new LaunchButton(document, () => {
-        if (miniPlayer.isOpen) miniPlayer.close();
-        else void miniPlayer.open(session.getCurrentVideo()).catch(() => undefined);
-    });
+    const button = new LaunchButton(
+        document,
+        () => findNavigationButton(document, 'next'),
+        () => {
+            if (miniPlayer.isOpen) miniPlayer.close();
+            else void miniPlayer.open(session.getCurrentVideo()).catch(() => undefined);
+        },
+    );
     return button;
 }
 

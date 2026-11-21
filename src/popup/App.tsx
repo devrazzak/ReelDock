@@ -66,7 +66,7 @@ function TabMessage({ state }: { state: ReelsTabState }) {
 /** One short hint at a time, only when it helps right now. */
 function hintFor(status: PlaybackStatus): string | null {
     if (status.muted && status.videoState === 'playing') return 'Sound is off. Click Unmute on the Reel once.';
-    if (!status.miniPlayerOpen) return 'Tip: click Mini player on the Reel for a floating player.';
+    if (!status.miniPlayerOpen) return 'Tip: click ⧉ under the arrows on the Reel for a floating player.';
     return null;
 }
 
@@ -85,7 +85,7 @@ export function App() {
                 <img src={chrome.runtime.getURL('icons/icon-48.png')} alt="" className="size-9 rounded-lg" />
                 <div className="min-w-0">
                     <Heading as="h1" size="sm">
-                        Reels Background Player
+                        ReelDock
                     </Heading>
                     <Text size="xs" color="muted">
                         {subtitleFor(tabState)}

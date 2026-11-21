@@ -1,7 +1,7 @@
 # Chrome Web Store submission
 
 Everything the developer dashboard asks for, ready to paste. Run `pnpm package` to create
-`release/reels-background-player-<version>.zip`, then upload it at
+`release/reeldock-<version>.zip`, then upload it at
 https://chrome.google.com/webstore/devconsole (one-time US$5 developer registration).
 
 ## Before each release
@@ -13,17 +13,22 @@ https://chrome.google.com/webstore/devconsole (one-time US$5 developer registrat
 
 ## Store listing
 
-**Name:** Reels Background Player
+**Name:** ReelDock – Facebook Reels Auto Scroll & Mini Player (toolbar short name: ReelDock)
 
 **Summary (max 132 characters):**
-Keep Facebook Reels playing in the background, auto-play the next Reel, and watch in a floating mini player.
+Auto scroll Facebook Reels, keep them playing in the background, and watch in a floating mini player you can scroll.
 
 **Category:** Entertainment
+
+**Search wording rules:** the name and summary carry the search terms people use ("Facebook Reels auto
+scroll", "mini player", "background play"). Only name platforms that are supported: add Instagram,
+YouTube Shorts or TikTok to the name and text only in the release that supports them (misleading metadata
+is rejected). Write keywords into sentences; a keyword list at the end counts as keyword spam.
 
 **Description:**
 
 ```
-Watch Facebook Reels while you work.
+ReelDock auto scrolls Facebook Reels and keeps them playing while you work.
 
 • Background playback – switch to any other tab and the Reel keeps playing.
 • Auto next – when a Reel ends, the next one starts by itself, even in the background.
@@ -42,8 +47,21 @@ This extension is not affiliated with, endorsed by, or sponsored by Meta Platfor
 "Facebook" is a trademark of Meta Platforms, Inc.
 ```
 
-**Screenshots** (1280×800 or 640×400, at least one): the popup next to a Reel, the mini player floating
-over another app, and the "Mini player" button on the Reels page.
+**Images (ready in `store-assets/final/`):**
+
+| File                        | Store field                                              |
+| --------------------------- | -------------------------------------------------------- |
+| `screenshot-1.png`          | Screenshot 1 (1280×800)                                  |
+| `screenshot-2.png`          | Screenshot 2 (1280×800)                                  |
+| `screenshot-3.png`          | Screenshot 3 (1280×800)                                  |
+| `screenshot-4.png`          | Screenshot 4 (1280×800): where the mini player button is |
+| `promo-tile-440x280.png`    | Small promo tile (440×280)                               |
+| `public/icons/icon-128.png` | Store icon (128×128)                                     |
+
+They show our own demo videos (`store-assets/demo`), never real Facebook content. To regenerate after a UI
+change: `CHROME_PATH=<Chrome for Testing> pnpm store:screenshots`, then render each image from
+`store-assets/compose.html?shot=1|2|3|4|tile` at its size, e.g.
+`google-chrome --headless=new --window-size=1280,800 --screenshot=store-assets/final/screenshot-1.png "file://$PWD/store-assets/compose.html?shot=1"`.
 
 ## Privacy practices tab
 
@@ -71,5 +89,5 @@ unrelated use, no creditworthiness use).
 ```
 To test: open https://www.facebook.com/reel/ while signed in, click the Reel and Unmute.
 Switch to another tab: playback continues and the next Reel starts when one ends.
-Click "Mini player" at the bottom right of the Reel to open the floating player.
+Click the ⧉ button under the up/down arrows on the right to open the floating player.
 ```

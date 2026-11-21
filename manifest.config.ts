@@ -6,9 +6,10 @@ const FACEBOOK_MATCHES = ['https://www.facebook.com/*', 'https://web.facebook.co
 
 export default defineManifest({
     manifest_version: 3,
-    name: 'Reels Background Player',
-    short_name: 'Reels BG Player',
-    description: 'Keep Facebook Reels playing while you work in other tabs, and move to the next Reel automatically.',
+    name: 'ReelDock – Facebook Reels Auto Scroll & Mini Player',
+    short_name: 'ReelDock',
+    description:
+        'Auto scroll Facebook Reels, keep them playing in the background, and watch in a floating mini player you can scroll.',
     version: packageJson.version,
     minimum_chrome_version: '116',
     icons: {
@@ -19,7 +20,7 @@ export default defineManifest({
     },
     action: {
         default_popup: 'src/popup/index.html',
-        default_title: 'Reels Background Player',
+        default_title: 'ReelDock',
     },
     background: {
         service_worker: 'src/background/service-worker.ts',

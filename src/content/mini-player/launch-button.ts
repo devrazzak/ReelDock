@@ -1,52 +1,88 @@
 /**
- * The button on Facebook's Reels page that opens the mini player.
+ * The button on the Reels page that opens the mini player.
  * Chrome only opens a Picture-in-Picture window from a click inside the page itself,
  * so the popup or a keyboard shortcut cannot do this.
- * Rendered in a closed shadow root so Facebook's CSS and ours cannot affect each other.
+ *
+ * It sits right under the site's own "next" button, where it reads as part of the Reel navigation
+ * and stays clear of Facebook's chat bubbles in the bottom-right corner. If that button cannot be
+ * found, it falls back to the bottom-left corner, which Facebook leaves empty.
+ * Rendered in a closed shadow root so the page's CSS and ours cannot affect each other.
  */
+const SIZE = 48;
+const GAP_BELOW_ANCHOR = 16;
+const FALLBACK_MARGIN = 24;
+
+// Matches Facebook's own up/down Reel buttons (measured on facebook.com, Nov 2026): a 48 px circle with a
+// 15 % white fill, 60 % opacity at rest and full opacity on hover; the icon draws its own white ring.
 const BUTTON_CSS = `
-:host { all: initial; }
+:host { all: initial; position: fixed; z-index: 2147483647; }
 button {
-    position: fixed; right: 24px; bottom: 24px; z-index: 2147483647;
-    display: flex; align-items: center; gap: 8px; padding: 10px 14px;
-    border: 0; border-radius: 999px; cursor: pointer;
-    background: rgb(0 0 0 / 0.7); color: #fff; font: 600 13px/1 system-ui, sans-serif;
-    box-shadow: 0 2px 12px rgb(0 0 0 / 0.3);
+    width: ${SIZE}px; height: ${SIZE}px; border-radius: 50%; padding: 0; border: 0; cursor: pointer;
+    display: block; background: rgb(255 255 255 / 0.15); color: #fff; opacity: 0.6;
+    transition: opacity 0.1s linear, transform 0.3s;
 }
-button:hover { background: rgb(0 0 0 / 0.85); }
+button:hover, button:focus-visible, button[aria-pressed='true'] { opacity: 1; }
+button:active { transform: scale(0.96); }
 button:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
-svg { width: 18px; height: 18px; fill: currentColor; }
+svg { width: ${SIZE}px; height: ${SIZE}px; display: block; }
 `;
 
-const ICON =
-    '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 11h-8v6h8zm4 8V5a2 2 0 0 0-2-2H3a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h18a2 2 0 0 0 2-2zm-2 0H3V5h18z"/></svg>';
+// Ring like Facebook's icons, with a picture-in-picture glyph in the middle.
+const ICON = `<svg viewBox="0 0 24 24" aria-hidden="true">
+    <circle cx="12" cy="12" r="10.5" fill="none" stroke="currentColor" stroke-width="2" />
+    <rect x="7" y="8.25" width="10" height="7.5" rx="1.25" fill="none" stroke="currentColor" stroke-width="1.5" />
+    <rect x="11.5" y="11.75" width="4" height="2.75" rx="0.5" fill="currentColor" />
+</svg>`;
 
 export class LaunchButton {
     private readonly host: HTMLElement;
     private readonly button: HTMLButtonElement;
 
-    constructor(doc: Document, onClick: () => void) {
-        this.host = doc.createElement('reels-mini-player-launcher');
+    /**
+     * @param getAnchor returns the element to sit under (the site's own "next" button), or null.
+     */
+    constructor(
+        doc: Document,
+        private readonly getAnchor: () => HTMLElement | null,
+        onClick: () => void,
+    ) {
+        this.host = doc.createElement('reeldock-launcher');
         const shadow = this.host.attachShadow({ mode: 'closed' });
-        shadow.innerHTML = `<style>${BUTTON_CSS}</style><button type="button">${ICON}<span></span></button>`;
+        shadow.innerHTML = `<style>${BUTTON_CSS}</style><button type="button">${ICON}</button>`;
         const button = shadow.querySelector('button');
         if (!button) throw new Error('Launch button markup is missing');
         this.button = button;
         this.button.addEventListener('click', onClick);
+        doc.defaultView?.addEventListener('resize', () => this.place());
         this.setOpen(false);
     }
 
-    /** Shows the button on Reels pages and removes it elsewhere. */
+    /** Shows the button on Reels pages and removes it elsewhere. Also re-aligns it with the page layout. */
     setVisible(visible: boolean): void {
         const parent = this.host.ownerDocument.body;
         if (visible && parent && !this.host.isConnected) parent.append(this.host);
         if (!visible && this.host.isConnected) this.host.remove();
+        if (visible) this.place();
     }
 
     setOpen(open: boolean): void {
-        const label = open ? 'Close mini player' : 'Mini player';
-        const text = this.button.querySelector('span');
-        if (text) text.textContent = label;
+        const label = open ? 'Close mini player' : 'Open mini player';
         this.button.setAttribute('aria-label', label);
+        this.button.setAttribute('aria-pressed', String(open));
+        this.button.title = label;
+    }
+
+    private place(): void {
+        const rect = this.getAnchor()?.getBoundingClientRect();
+        const { style } = this.host;
+        if (rect && rect.width > 0) {
+            style.left = `${Math.round(rect.left + rect.width / 2 - SIZE / 2)}px`;
+            style.top = `${Math.round(rect.bottom + GAP_BELOW_ANCHOR)}px`;
+            style.bottom = '';
+        } else {
+            style.left = `${FALLBACK_MARGIN}px`;
+            style.top = '';
+            style.bottom = `${FALLBACK_MARGIN}px`;
+        }
     }
 }
