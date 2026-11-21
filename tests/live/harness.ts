@@ -10,8 +10,8 @@ import { isReallyHidden } from './real-visibility';
 
 import '@/page-world/visibility-guard.iife';
 
-import { facebookAdapter } from '@/content/platforms/facebook';
-import { createNavigationStrategies } from '@/content/reels/reel-navigator';
+import { facebookAdapter } from '@/content/platforms/facebook/facebook-adapter';
+import { createNavigationStrategies } from '@/content/session/reel-navigator';
 import { ReelSession } from '@/content/session/reel-session';
 import { BACKGROUND_ATTRIBUTE } from '@/shared/dom-contract';
 import { DEFAULT_SETTINGS } from '@/shared/settings';

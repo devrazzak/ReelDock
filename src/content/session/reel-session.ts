@@ -1,5 +1,5 @@
 import type { Direction, PlatformAdapter } from '@/content/platforms/platform-adapter';
-import type { NavigationStrategy } from '@/content/reels/reel-navigator';
+import type { NavigationStrategy } from '@/content/session/reel-navigator';
 import { findActiveVideo } from '@/content/video/active-video';
 import { isLoopRestart } from '@/content/video/end-detection';
 import type { PlayerCommand } from '@/shared/messages';

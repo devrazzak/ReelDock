@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { facebookAdapter } from '@/content/platforms/facebook';
-import { createNavigationStrategies } from '@/content/reels/reel-navigator';
+import { facebookAdapter } from '@/content/platforms/facebook/facebook-adapter';
+import { createNavigationStrategies } from '@/content/session/reel-navigator';
 import { ReelSession, type VideoStage } from '@/content/session/reel-session';
 import { findActiveVideo } from '@/content/video/active-video';
 import { DEFAULT_SETTINGS, type ExtensionSettings } from '@/shared/settings';

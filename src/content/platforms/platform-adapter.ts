@@ -10,6 +10,8 @@ export interface PlatformAdapter {
     readonly id: string;
     /** Name shown to users, e.g. "Facebook Reels". */
     readonly name: string;
+    /** Hosts this adapter handles, e.g. "www.facebook.com". */
+    readonly hostnames: readonly string[];
     /** True when the path is the site's short-video page. */
     isReelsPage(pathname: string): boolean;
     /** The current video's id from the URL, or null. */

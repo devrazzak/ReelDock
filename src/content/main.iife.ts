@@ -1,7 +1,8 @@
 import { LaunchButton } from '@/content/mini-player/launch-button';
 import { MiniPlayer } from '@/content/mini-player/mini-player';
-import { facebookAdapter } from '@/content/platforms/facebook';
-import { createNavigationStrategies } from '@/content/reels/reel-navigator';
+import { findPlatformAdapter } from '@/content/platforms';
+import type { PlatformAdapter } from '@/content/platforms/platform-adapter';
+import { createNavigationStrategies } from '@/content/session/reel-navigator';
 import { ReelSession } from '@/content/session/reel-session';
 import { BACKGROUND_ATTRIBUTE } from '@/shared/dom-contract';
 import { isContentRequest, STATUS_PORT_NAME, type ContentResponse, type StatusPortMessage } from '@/shared/messages';
@@ -18,16 +19,19 @@ function applyBackgroundSetting(settings: ExtensionSettings): void {
 }
 
 function main(): void {
-    // Facebook embeds videos in iframes in some places; Reels live in the top frame.
+    // Sites embed videos in iframes in some places; the short-video feed lives in the top frame.
     if (window.top !== window) return;
+
+    const platform = findPlatformAdapter(location.hostname);
+    if (!platform) return;
 
     let settings: ExtensionSettings = { ...DEFAULT_SETTINGS };
     const ports = new Set<chrome.runtime.Port>();
 
     const session = new ReelSession({
         doc: document,
-        platform: facebookAdapter,
-        strategies: createNavigationStrategies(document, facebookAdapter, () => session.getCurrentVideo()),
+        platform,
+        strategies: createNavigationStrategies(document, platform, () => session.getCurrentVideo()),
         getSettings: () => settings,
         onStatus: (status: PlaybackStatus) => {
             // Reloading the extension orphans this script; the fresh copy arrives with the next page load.
@@ -43,7 +47,7 @@ function main(): void {
         },
     });
 
-    const launchButton = MiniPlayer.isSupported(window) ? createMiniPlayer(session) : null;
+    const launchButton = MiniPlayer.isSupported(window) ? createMiniPlayer(session, platform) : null;
 
     loadSettings()
         .then(loaded => {
@@ -86,7 +90,7 @@ function main(): void {
 }
 
 /** Wires the mini player window and its launch button on the Reels page to the session. */
-function createMiniPlayer(session: ReelSession): LaunchButton {
+function createMiniPlayer(session: ReelSession, platform: PlatformAdapter): LaunchButton {
     let stopObserving: (() => void) | null = null;
 
     const miniPlayer = new MiniPlayer(window, {
@@ -108,7 +112,7 @@ function createMiniPlayer(session: ReelSession): LaunchButton {
 
     const button = new LaunchButton(
         document,
-        () => facebookAdapter.findNavigationButton(document, 'next'),
+        () => platform.findNavigationButton(document, 'next'),
         () => {
             if (miniPlayer.isOpen) miniPlayer.close();
             else void miniPlayer.open(session.getCurrentVideo()).catch(() => undefined);
