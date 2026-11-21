@@ -32,7 +32,7 @@ function check(name, passed, detail = '') {
 }
 
 /** Real visibility (bypassing the extension's page-world override) and the current Reel's video state. */
-const PAGE_STATE = `(() => {
+const pageState = findVideo => `(() => {
     if (!document.body) return { id: null, paused: null, muted: null, playing: 0 };
     const frame = document.createElement('iframe');
     frame.style.display = 'none';
@@ -40,7 +40,7 @@ const PAGE_STATE = `(() => {
     const getVisibility = Object.getOwnPropertyDescriptor(frame.contentWindow.Document.prototype, 'visibilityState').get;
     frame.remove();
     const id = location.pathname.split('/')[2];
-    const video = document.querySelector('[data-video-id="' + id + '"] video');
+    const video = ${findVideo};
     return {
         realVisibility: getVisibility.call(document),
         id,
@@ -49,6 +49,8 @@ const PAGE_STATE = `(() => {
         playing: [...document.querySelectorAll('video')].filter(v => !v.paused).length,
     };
 })()`;
+const PAGE_STATE = pageState(`document.querySelector('[data-video-id="' + id + '"] video')`);
+const YOUTUBE_STATE = pageState(`document.querySelector('ytd-shorts video')`);
 
 async function waitFor(read, predicate, timeoutMs = 10000) {
     const start = Date.now();
@@ -114,14 +116,24 @@ async function openTab(client, url) {
     return session;
 }
 
-/** Serves the fixture for every www.facebook.com request made by this tab. */
-async function serveFixture(client, session) {
+/** Reloads and waits for the new page. Page.reload returns while the old page is still alive and answering. */
+async function reloadAndWait(session) {
+    await session.evaluate('window.__beforeReload = true');
+    await session.send('Page.reload');
+    await waitFor(
+        () => session.evaluate('document.readyState === "complete" && !window.__beforeReload').catch(() => false),
+        ready => ready === true,
+    );
+}
+
+/** Serves the fixture page for every request to this host made by this tab; /__fixture/* serves the videos. */
+async function serveFixture(client, session, host = 'www.facebook.com', page = 'reels.html') {
     client.on(async message => {
         if (message.method !== 'Fetch.requestPaused' || message.sessionId !== session.sessionId) return;
         const { requestId, request } = message.params;
         const path = new URL(request.url).pathname;
         const isVideo = path.startsWith('/__fixture/');
-        const file = isVideo ? join(fixtureDir, path.replace('/__fixture/', '')) : join(fixtureDir, 'reels.html');
+        const file = isVideo ? join(fixtureDir, path.replace('/__fixture/', '')) : join(fixtureDir, page);
         await session.send('Fetch.fulfillRequest', {
             requestId,
             responseCode: 200,
@@ -129,7 +141,164 @@ async function serveFixture(client, session) {
             body: (await readFile(file)).toString('base64'),
         });
     });
-    await session.send('Fetch.enable', { patterns: [{ urlPattern: 'https://www.facebook.com/*' }] });
+    await session.send('Fetch.enable', { patterns: [{ urlPattern: `https://${host}/*` }] });
+}
+
+const YOUTUBE_MINI_STATE = `(() => {
+    const pip = documentPictureInPicture.window;
+    const video = pip?.document.querySelector('video');
+    return {
+        open: Boolean(pip),
+        id: location.pathname.split('/')[2],
+        inMiniPlayer: Boolean(video) && video.closest('ytd-shorts') === null,
+        miniVideoSrc: video ? video.currentSrc.split('/').pop() : null,
+        paused: video ? video.paused : null,
+        muted: video ? video.muted : null,
+        playing: [...document.querySelectorAll('video')].filter(v => !v.paused).length + (video && !video.paused ? 1 : 0),
+    };
+})()`;
+
+/**
+ * The same extension on a second site: a fixture that imitates YouTube Shorts (see fixture/shorts.html).
+ * One <video> is reused for every Short, and Shorts loop instead of firing "ended".
+ */
+async function runYoutubeChecks({ client, control, setSettings, hideTab }) {
+    await setSettings(true);
+    const tab = await openTab(client);
+    await serveFixture(client, tab, 'www.youtube.com', 'shorts.html');
+    await tab.send('Page.navigate', { url: 'https://www.youtube.com/shorts/sh_0001' });
+    const read = () => tab.evaluate(YOUTUBE_STATE);
+    const showTab = () =>
+        control.evaluate(`(async () => {
+            const [tab] = await chrome.tabs.query({ url: 'https://www.youtube.com/*' });
+            await chrome.tabs.update(tab.id, { active: true });
+        })()`);
+    const shortFile = id => `short-${Number(id.slice(3))}.mp4`;
+
+    let state = await waitFor(read, s => s.paused === false);
+    check('YouTube: Short starts playing', state.paused === false, `short ${state.id}`);
+    await tab.click('ytd-shorts [aria-label="Unmute (m)"]'); // trusted click = user activation
+    state = await waitFor(read, s => s.muted === false);
+    check('YouTube: sound is on after the user clicks Unmute', state.muted === false);
+
+    await hideTab();
+    state = await waitFor(read, s => s.realVisibility === 'hidden');
+    check('YouTube: tab is really in the background', state.realVisibility === 'hidden', state.realVisibility);
+    // Shorts are 4 s and loop. Auto next has to notice the loop restart and move on by itself.
+    const visited = [state.id];
+    for (let i = 0; i < 120 && visited.length < 4; i++) {
+        await sleep(250);
+        const now = await read();
+        if (visited.at(-1) !== now.id) visited.push(now.id);
+    }
+    check(
+        'YouTube: auto next moved through every Short while hidden',
+        visited.join(',') === 'sh_0001,sh_0002,sh_0003,sh_0004',
+        visited.join(' → '),
+    );
+    state = await waitFor(read, s => s.id === 'sh_0004' && s.paused === false, 5000);
+    check(
+        'YouTube: last Short is playing with sound in the background',
+        state.paused === false && state.muted === false,
+        JSON.stringify(state),
+    );
+    check('YouTube: only one video plays at a time', state.playing === 1, `${state.playing} playing`);
+
+    // ---- Mini player ----
+    await showTab();
+    await tab.evaluate(`history.replaceState({}, '', '/shorts/sh_0001')`);
+    await reloadAndWait(tab);
+    await waitFor(read, s => s.paused === false);
+    await tab.click('ytd-shorts [aria-label="Unmute (m)"]');
+    state = await waitFor(read, s => s.muted === false, 3000);
+    check('YouTube: sound is on again after reloading the page', state.muted === false, JSON.stringify(state));
+    const launcher = await tab.evaluate(`(() => {
+        const host = document.querySelector('reeldock-launcher').getBoundingClientRect();
+        const next = document.querySelector('ytd-shorts [aria-label="Next video"]').getBoundingClientRect();
+        return {
+            x: host.left + host.width / 2,
+            y: host.top + host.height / 2,
+            gap: host.top - next.bottom,
+            dx: host.left + host.width / 2 - (next.left + next.width / 2),
+        };
+    })()`);
+    check(
+        'YouTube: mini player button sits right under the next button',
+        Math.abs(launcher.gap - 16) <= 1 && Math.abs(launcher.dx) <= 1,
+        JSON.stringify(launcher),
+    );
+    await tab.clickAt(launcher.x, launcher.y);
+    const readMini = () => tab.evaluate(YOUTUBE_MINI_STATE);
+    let mini = await waitFor(readMini, m => m.open && m.paused === false);
+    check(
+        'YouTube: mini player opens and plays the Short',
+        mini.open && mini.inMiniPlayer && mini.paused === false && mini.miniVideoSrc === shortFile(mini.id),
+        JSON.stringify(mini),
+    );
+
+    const pipTarget = await waitFor(
+        async () =>
+            (await client.send('Target.getTargets')).targetInfos.find(
+                t => t.type === 'page' && t.openerId === tab.targetId && t.url === 'about:blank',
+            ),
+        target => Boolean(target),
+    );
+    const pip = await client.attach(pipTarget.targetId);
+    await pip.send('Runtime.enable');
+
+    await pip.wheel(180, 320, 150);
+    mini = await waitFor(readMini, m => m.id === 'sh_0002' && m.paused === false);
+    check(
+        'YouTube: mouse wheel in the mini player goes to the next Short',
+        mini.id === 'sh_0002' && mini.miniVideoSrc === shortFile('sh_0002') && mini.paused === false,
+        JSON.stringify(mini),
+    );
+    check('YouTube: sound stays on in the mini player', mini.muted === false);
+
+    // Mute with the M key through YouTube's own button, change Short: the next one must stay muted.
+    await pip.press('m', 'KeyM');
+    await sleep(300);
+    await pip.press('ArrowUp', 'ArrowUp'); // previous Short
+    mini = await waitFor(readMini, m => m.id === 'sh_0001' && m.paused === false);
+    await sleep(600);
+    mini = await readMini();
+    check(
+        'YouTube: muting in the mini player carries over to the next Short',
+        mini.id === 'sh_0001' && mini.muted === true,
+        JSON.stringify(mini),
+    );
+
+    await hideTab();
+    mini = await waitFor(readMini, m => m.id === 'sh_0002' && m.paused === false, 10000);
+    check(
+        'YouTube: auto next continues inside the mini player while the tab is hidden',
+        mini.id === 'sh_0002' && mini.inMiniPlayer && mini.paused === false,
+        JSON.stringify(mini),
+    );
+
+    await tab.evaluate('documentPictureInPicture.window.close()');
+    await sleep(800);
+    const back = await tab.evaluate(`(() => {
+        const video = document.querySelector('ytd-shorts video');
+        return { inPlayer: Boolean(video), file: video?.currentSrc.split('/').pop(), paused: video?.paused };
+    })()`);
+    state = await read();
+    check(
+        'YouTube: closing the mini player returns the video to YouTube and keeps playing',
+        back.inPlayer && back.file === shortFile(state.id) && back.paused === false,
+        JSON.stringify(back),
+    );
+    await showTab();
+
+    // ---- Control: background playback off ----
+    await setSettings(false);
+    await sleep(300);
+    await hideTab();
+    state = await waitFor(read, s => s.paused === true, 3000);
+    check(
+        'YouTube control: with background playback off, the page pauses when hidden',
+        state.realVisibility === 'hidden' && state.paused === true,
+    );
 }
 
 async function main() {
@@ -442,6 +611,11 @@ async function main() {
             'Control: with background playback off, the page pauses when hidden',
             state.realVisibility === 'hidden' && state.paused === true,
         );
+
+        // ---- YouTube Shorts ----
+        await showReels();
+        await client.send('Target.closeTarget', { targetId: reels.targetId });
+        await runYoutubeChecks({ client, control, setSettings, hideTab: hideReels });
     } finally {
         await stop();
     }

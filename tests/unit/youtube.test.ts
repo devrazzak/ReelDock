@@ -74,36 +74,51 @@ describe('findShortVideo', () => {
 
 describe('findNavigationButton', () => {
     it('finds the buttons even though YouTube gives them no size', () => {
-        document.body.innerHTML = `
+        document.body.innerHTML = `<ytd-shorts>
             <button aria-label="Previous video" id="prev" style="display: none"></button>
-            <button aria-label="Next video" id="next" style="display: none"></button>`;
+            <button aria-label="Next video" id="next" style="display: none"></button>
+        </ytd-shorts>`;
         expect(findNavigationButton(document, 'next')?.id).toBe('next');
         expect(findNavigationButton(document, 'previous')?.id).toBe('prev');
     });
 
     it('matches the label case-insensitively and skips disabled buttons', () => {
-        document.body.innerHTML = `<button aria-label="NEXT VIDEO" id="a" disabled></button><button aria-label="Next Video" id="b"></button>`;
+        document.body.innerHTML = `<ytd-shorts>
+            <button aria-label="NEXT VIDEO" id="a" disabled></button><button aria-label="Next Video" id="b"></button>
+        </ytd-shorts>`;
         expect(findNavigationButton(document, 'next')?.id).toBe('b');
     });
 
     it('does not mistake other buttons for navigation', () => {
-        document.body.innerHTML = `<button aria-label="Play (k)"></button><button aria-label="Next"></button>`;
+        document.body.innerHTML = `<ytd-shorts><button aria-label="Play (k)"></button><button aria-label="Next"></button></ytd-shorts>`;
+        expect(findNavigationButton(document, 'next')).toBeNull();
+    });
+
+    it('ignores buttons outside the Shorts player', () => {
+        document.body.innerHTML = `<button aria-label="Next video" id="outside"></button><ytd-shorts></ytd-shorts>`;
         expect(findNavigationButton(document, 'next')).toBeNull();
     });
 });
 
 describe('findMuteButton', () => {
     it('finds the button with or without the key hint, muted or not', () => {
-        document.body.innerHTML = `<button aria-label="Play (k)"></button><button aria-label="Mute (m)" id="m"></button>`;
+        document.body.innerHTML = `<ytd-shorts><button aria-label="Play (k)"></button><button aria-label="Mute (m)" id="m"></button></ytd-shorts>`;
         expect(findMuteButton(document)?.id).toBe('m');
-        document.body.innerHTML = `<button aria-label="Unmute (m)" id="u"></button>`;
+        document.body.innerHTML = `<ytd-shorts><button aria-label="Unmute (m)" id="u"></button></ytd-shorts>`;
         expect(findMuteButton(document)?.id).toBe('u');
-        document.body.innerHTML = `<button aria-label="Mute" id="plain"></button>`;
+        document.body.innerHTML = `<ytd-shorts><button aria-label="Mute" id="plain"></button></ytd-shorts>`;
         expect(findMuteButton(document)?.id).toBe('plain');
     });
 
+    it("skips the hidden mute button of the watch page's own player, which comes first on a wide window", () => {
+        document.body.innerHTML = `
+            <ytd-watch-flexy><button aria-label="Unmute (m)" id="watch-page"></button></ytd-watch-flexy>
+            <ytd-shorts><button aria-label="Mute (m)" id="shorts"></button></ytd-shorts>`;
+        expect(findMuteButton(document)?.id).toBe('shorts');
+    });
+
     it('returns null when there is no mute button', () => {
-        document.body.innerHTML = `<button aria-label="Play (k)"></button>`;
+        document.body.innerHTML = `<ytd-shorts><button aria-label="Play (k)"></button></ytd-shorts>`;
         expect(findMuteButton(document)).toBeNull();
     });
 });

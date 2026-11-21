@@ -8,6 +8,10 @@ describe('findPlatformAdapter', () => {
         expect(findPlatformAdapter('web.facebook.com')?.id).toBe('facebook');
     });
 
+    it('picks the YouTube adapter on YouTube', () => {
+        expect(findPlatformAdapter('www.youtube.com')?.id).toBe('youtube');
+    });
+
     it('returns null for unsupported sites', () => {
         expect(findPlatformAdapter('m.facebook.com')).toBeNull();
         expect(findPlatformAdapter('example.com')).toBeNull();

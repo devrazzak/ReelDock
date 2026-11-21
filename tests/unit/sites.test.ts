@@ -25,9 +25,17 @@ describe('site patterns', () => {
         ]);
     });
 
-    it('keeps the current Facebook patterns unchanged', () => {
-        expect(getSiteMatchPatterns()).toEqual(['https://www.facebook.com/*', 'https://web.facebook.com/*']);
-        expect(getReelsTabPatterns()).toEqual(['https://www.facebook.com/reel/*', 'https://web.facebook.com/reel/*']);
+    it('lists Facebook and YouTube, each with its own Reels path', () => {
+        expect(getSiteMatchPatterns()).toEqual([
+            'https://www.facebook.com/*',
+            'https://web.facebook.com/*',
+            'https://www.youtube.com/*',
+        ]);
+        expect(getReelsTabPatterns()).toEqual([
+            'https://www.facebook.com/reel/*',
+            'https://web.facebook.com/reel/*',
+            'https://www.youtube.com/shorts/*',
+        ]);
     });
 });
 

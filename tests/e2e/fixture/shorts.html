@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <title>Fake YouTube Shorts (e2e fixture)</title>
+        <style>
+            body {
+                margin: 0;
+                background: #0f0f0f;
+                font-family: sans-serif;
+            }
+            ytd-watch-flexy,
+            ytd-shorts,
+            ytd-reel-video-renderer {
+                display: block;
+            }
+            ytd-reel-video-renderer {
+                height: 100vh;
+                display: grid;
+                place-items: center;
+            }
+            #shorts-player video {
+                height: 90vh;
+            }
+            /* Wide window: round 56 px arrows at the right edge, mute at the top of the player. */
+            #navigation {
+                position: fixed;
+                right: 16px;
+                top: 40%;
+                display: flex;
+                flex-direction: column;
+                gap: 16px;
+            }
+            #navigation button,
+            #mute {
+                width: 48px;
+                height: 48px;
+                border-radius: 50%;
+                border: 1px solid #888;
+                background: #272727;
+                color: #ddd;
+                cursor: pointer;
+            }
+            #mute {
+                position: fixed;
+                left: 40%;
+                top: 16px;
+            }
+        </style>
+    </head>
+    <body>
+        <!--
+            Imitates the YouTube Shorts behaviour verified on youtube.com (Nov 2026):
+            - /shorts/<id>; the id has no matching attribute anywhere in the page
+            - ONE <video> is reused for every Short: only its source changes (so it is not moved or replaced)
+            - the page also holds an idle <video> without a source and a hidden "Unmute (m)" button in the
+              watch-page player, both outside <ytd-shorts>
+            - "Previous video" / "Next video" buttons change the URL and load the other Short, which autoplays
+            - a Short loops (loop attribute) and never fires "ended"
+            - one mute button whose label flips between "Mute (m)" and "Unmute (m)"; the choice carries over
+            - the page pauses on visibilitychange when hidden and resumes when visible
+        -->
+        <ytd-watch-flexy>
+            <video class="html5-main-video"></video>
+            <button aria-label="Unmute (m)" style="display: none"></button>
+        </ytd-watch-flexy>
+        <ytd-shorts>
+            <ytd-reel-video-renderer id="reel-video-renderer">
+                <div id="shorts-player">
+                    <video class="html5-main-video" playsinline loop></video>
+                </div>
+            </ytd-reel-video-renderer>
+            <div id="navigation">
+                <button aria-label="Previous video">&#8963;</button>
+                <button aria-label="Next video">&#8964;</button>
+            </div>
+            <button aria-label="Unmute (m)" id="mute">Sound</button>
+        </ytd-shorts>
+        <script>
+            const SHORTS = ['sh_0001', 'sh_0002', 'sh_0003', 'sh_0004'];
+            const state = { muted: true };
+            const video = document.querySelector('ytd-shorts video');
+
+            const indexOfUrl = () => Math.max(0, SHORTS.indexOf(location.pathname.split('/')[2]));
+
+            function load(index) {
+                video.src = `/__fixture/short-${index + 1}.mp4`;
+                video.muted = state.muted;
+                if (!document.hidden) void video.play().catch(() => {});
+            }
+
+            function goTo(index) {
+                if (index < 0 || index >= SHORTS.length) return;
+                history.pushState({}, '', `/shorts/${SHORTS[index]}`);
+                load(index);
+            }
+
+            document
+                .querySelector('ytd-shorts [aria-label="Next video"]')
+                .addEventListener('click', () => goTo(indexOfUrl() + 1));
+            document
+                .querySelector('ytd-shorts [aria-label="Previous video"]')
+                .addEventListener('click', () => goTo(indexOfUrl() - 1));
+
+            const muteButton = document.getElementById('mute');
+            muteButton.addEventListener('click', () => {
+                state.muted = !state.muted;
+                muteButton.setAttribute('aria-label', state.muted ? 'Unmute (m)' : 'Mute (m)');
+                video.muted = state.muted;
+            });
+
+            document.addEventListener('visibilitychange', () => {
+                if (document.hidden) video.pause();
+                else void video.play();
+            });
+
+            load(indexOfUrl());
+        </script>
+    </body>
+</html>

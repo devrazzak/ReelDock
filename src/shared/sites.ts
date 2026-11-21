@@ -23,8 +23,7 @@ export const YOUTUBE_SITE: SupportedSite = {
     reelsPath: '/shorts/*',
 };
 
-// YOUTUBE_SITE is not listed yet: listing it adds youtube.com to the manifest's host permissions.
-export const SUPPORTED_SITES: readonly SupportedSite[] = [FACEBOOK_SITE];
+export const SUPPORTED_SITES: readonly SupportedSite[] = [FACEBOOK_SITE, YOUTUBE_SITE];
 
 /** Every page of every supported site. Used for the manifest's host permissions and content scripts. */
 export function getSiteMatchPatterns(sites: readonly SupportedSite[] = SUPPORTED_SITES): string[] {
