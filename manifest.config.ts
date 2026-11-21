@@ -1,8 +1,9 @@
 import { defineManifest } from '@crxjs/vite-plugin';
 
 import packageJson from './package.json' with { type: 'json' };
+import { getSiteMatchPatterns } from './src/shared/sites';
 
-const FACEBOOK_MATCHES = ['https://www.facebook.com/*', 'https://web.facebook.com/*'];
+const SITE_MATCHES = getSiteMatchPatterns();
 
 export default defineManifest({
     manifest_version: 3,
@@ -27,17 +28,17 @@ export default defineManifest({
         type: 'module',
     },
     permissions: ['storage'],
-    host_permissions: FACEBOOK_MATCHES,
+    host_permissions: SITE_MATCHES,
     content_scripts: [
         {
-            // Runs in the page's own JS world before Facebook's scripts, so it can answer visibility checks.
-            matches: FACEBOOK_MATCHES,
+            // Runs in the page's own JS world before the site's scripts, so it can answer visibility checks.
+            matches: SITE_MATCHES,
             js: ['src/page-world/visibility-guard.iife.ts'],
             run_at: 'document_start',
             world: 'MAIN',
         },
         {
-            matches: FACEBOOK_MATCHES,
+            matches: SITE_MATCHES,
             js: ['src/content/main.iife.ts'],
             run_at: 'document_start',
         },
