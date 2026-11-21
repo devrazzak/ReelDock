@@ -7,7 +7,9 @@
  * - Each card has a `role="button"` labelled "Unmute" / "Mute". Facebook keeps the mute choice in its
  *   own state and applies it to every new Reel; muting only the <video> element does not change it.
  */
-export type Direction = 'next' | 'previous';
+import type { Direction } from '@/content/platforms/platform-adapter';
+
+export type { Direction };
 
 const NAVIGATION_LABELS: Readonly<Record<Direction, readonly string[]>> = {
     next: ['next card', 'next reel'],

@@ -19,7 +19,7 @@ interface NowPlayingProps {
 }
 
 export function NowPlaying({ status, onCommand }: NowPlayingProps) {
-    const label = status.navigating ? 'Next Reel…' : STATE_LABELS[status.videoState];
+    const label = status.navigating ? 'Next video…' : STATE_LABELS[status.videoState];
 
     return (
         <section aria-label="Now playing" className="bg-muted flex flex-col gap-4 rounded-lg p-4">

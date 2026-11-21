@@ -2,8 +2,8 @@
 
 _Last updated: 21 November 2026_
 
-ReelDock is a Chrome extension that keeps Facebook Reels playing in the background,
-moves to the next Reel automatically, and offers a floating mini player.
+ReelDock is a Chrome extension that keeps Facebook Reels, YouTube Shorts and Instagram Reels playing in the background,
+moves to the next video automatically, and offers a floating mini player.
 
 **What it collects:** nothing. The extension does not collect, store, transmit, sell or share personal
 data, browsing history, page content, cookies or credentials.
@@ -12,8 +12,9 @@ data, browsing history, page content, cookies or credentials.
 storage (`chrome.storage.sync`). Chrome may sync these settings across your signed-in Chrome profile.
 They never reach the developer.
 
-**Where it runs:** only on `www.facebook.com` and `web.facebook.com`. There it reads the current Reel's
-id from the address bar and the state of Facebook's video player, entirely inside your browser.
+**Where it runs:** only on `www.facebook.com`, `web.facebook.com`, `www.youtube.com` and `www.instagram.com`.
+There it reads the current video's id from the address bar and the state of the site's video player,
+entirely inside your browser.
 
 **Network:** the extension makes no network requests of its own and loads no remote code.
 

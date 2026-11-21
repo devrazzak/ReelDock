@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { createNavigationStrategies } from '@/content/reels/reel-navigator';
+import { facebookAdapter } from '@/content/platforms/facebook/facebook-adapter';
+import { createNavigationStrategies } from '@/content/session/reel-navigator';
 import { ReelSession, type VideoStage } from '@/content/session/reel-session';
 import { findActiveVideo } from '@/content/video/active-video';
 import { DEFAULT_SETTINGS, type ExtensionSettings } from '@/shared/settings';
@@ -32,7 +33,8 @@ function setup(options: SetupOptions = {}): Setup {
     const statuses: PlaybackStatus[] = [];
     const session = new ReelSession({
         doc: document,
-        strategies: createNavigationStrategies(document, () => findActiveVideo(document)),
+        platform: facebookAdapter,
+        strategies: createNavigationStrategies(document, facebookAdapter, () => findActiveVideo(document)),
         getSettings: () => settings,
         onStatus: status => statuses.push(status),
         isTabHidden: () => options.hidden ?? true,
@@ -188,11 +190,22 @@ describe('ReelSession keeps a pause from the user', () => {
         expect(page.videos[0]!.paused).toBe(true);
     });
 
-    it('leaves Facebook alone in a visible tab without the mini player', async () => {
+    it('undoes Facebook resuming right after a pause from the popup, also in a visible tab', async () => {
         const { page, session } = setup({ hidden: false });
         await page.videos[0]!.play();
 
         await session.runCommand('toggle-play');
+        await page.videos[0]!.play(); // Facebook syncing the element back to its own "playing" state
+
+        expect(page.videos[0]!.paused).toBe(true);
+    });
+
+    it('leaves Facebook alone when the user presses play in its own UI later', async () => {
+        const { page, session } = setup({ hidden: false });
+        await page.videos[0]!.play();
+
+        await session.runCommand('toggle-play');
+        await settle(600);
         await page.videos[0]!.play(); // the user pressing play in Facebook's own UI
 
         expect(page.videos[0]!.paused).toBe(false);
@@ -269,7 +282,7 @@ describe('ReelSession failures', () => {
         page.videos[0]!.finish();
         await settle(300);
         expect(lastStatus(statuses).lastNavigation?.result).toBe('failed');
-        expect(lastStatus(statuses).warning).toMatch(/Facebook may have changed/);
+        expect(lastStatus(statuses).warning).toMatch(/site may have changed/);
 
         page.brokenNavigation = false;
         page.videos[0]!.finish();
@@ -348,6 +361,156 @@ describe('ReelSession with the mini player open', () => {
     });
 });
 
+describe('ReelSession keeps the video in the mini player playing', () => {
+    it('resumes it when the site pauses it, but not when the user does', async () => {
+        const { page, session } = setup({ hidden: false });
+        const stage = new FakeStage();
+        session.attachStage(stage);
+        const video = page.videos[0]!;
+        stage.present(video);
+        await video.play();
+
+        video.pause(); // the site, e.g. Instagram, pausing a video that left its page
+        await settle();
+        expect(video.paused).toBe(false);
+
+        await session.runCommand('toggle-play'); // the user pauses
+        await settle();
+        expect(video.paused).toBe(true);
+    });
+
+    it('stops resuming after a few tries, so it never fights the site', async () => {
+        const { page, session } = setup({ hidden: false });
+        const stage = new FakeStage();
+        session.attachStage(stage);
+        const video = page.videos[0]!;
+        stage.present(video);
+        await video.play();
+
+        for (let attempt = 0; attempt < 5; attempt++) {
+            video.pause();
+            await settle(30);
+        }
+        expect(video.paused).toBe(true);
+    });
+});
+
+describe('ReelSession with a navigation that keeps the URL', () => {
+    it('counts a different current video as moved and plays it', async () => {
+        const page = createFakeReelsPage(document, REELS);
+        const [first, second] = page.videos;
+        // Like Instagram in a background tab: the page jumps to the neighbour, the URL stays.
+        const platform = { ...facebookAdapter, findReelVideo: () => findActiveVideo(document) };
+        const session = new ReelSession({
+            doc: document,
+            platform,
+            strategies: [
+                {
+                    name: 'jump',
+                    keepsUrl: true,
+                    trigger: () => {
+                        first!.pause();
+                        void second!.play();
+                        return true;
+                    },
+                },
+            ],
+            getSettings: () => DEFAULT_SETTINGS,
+            onStatus: () => undefined,
+            isTabHidden: () => true,
+            navigationTimeoutMs: 150,
+            playVerifyMs: 20,
+        });
+        session.start();
+        current = { page, session, settings: DEFAULT_SETTINGS, statuses: [] };
+        await first!.play();
+
+        await session.runCommand('next-reel');
+
+        expect(location.pathname).toBe('/reel/111');
+        expect(second!.paused).toBe(false);
+        expect(first!.paused).toBe(true);
+        expect(session.getStatus().lastNavigation).toMatchObject({ result: 'success', detail: 'jump' });
+    });
+});
+
+describe('ReelSession when the URL changes before the site leaves the old video', () => {
+    it('waits for the new video instead of taking the old one again', async () => {
+        const page = createFakeReelsPage(document, REELS);
+        const [first, second] = page.videos;
+        let siteMovedOn = false;
+        const platform = { ...facebookAdapter, findReelVideo: () => (siteMovedOn ? second! : first!) };
+        const stage = new FakeStage();
+        const session = new ReelSession({
+            doc: document,
+            platform,
+            strategies: [
+                {
+                    name: 'slow-site',
+                    trigger: () => {
+                        history.replaceState({}, '', '/reel/222');
+                        setTimeout(() => (siteMovedOn = true), 100);
+                        return true;
+                    },
+                },
+            ],
+            getSettings: () => DEFAULT_SETTINGS,
+            onStatus: () => undefined,
+            isTabHidden: () => false,
+            navigationTimeoutMs: 400,
+            playVerifyMs: 20,
+        });
+        session.start();
+        session.attachStage(stage);
+        current = { page, session, settings: DEFAULT_SETTINGS, statuses: [] };
+        stage.present(first!);
+        await first!.play();
+
+        await session.runCommand('next-reel');
+
+        expect(stage.video).toBe(second);
+        expect(second!.paused).toBe(false);
+        expect(first!.paused).toBe(true);
+    });
+});
+
+describe('ReelSession with a site that reuses one video element', () => {
+    it('takes the same element once its source has changed (YouTube)', async () => {
+        const page = createFakeReelsPage(document, REELS);
+        const video = page.videos[0]!;
+        let source = 'short-1.mp4';
+        Object.defineProperty(video, 'currentSrc', { get: () => source });
+        const platform = { ...facebookAdapter, findReelVideo: () => video };
+        const session = new ReelSession({
+            doc: document,
+            platform,
+            strategies: [
+                {
+                    name: 'reused-element',
+                    trigger: () => {
+                        history.replaceState({}, '', '/reel/222');
+                        setTimeout(() => (source = 'short-2.mp4'), 100);
+                        return true;
+                    },
+                },
+            ],
+            getSettings: () => DEFAULT_SETTINGS,
+            onStatus: () => undefined,
+            isTabHidden: () => true,
+            navigationTimeoutMs: 400,
+            playVerifyMs: 20,
+        });
+        session.start();
+        current = { page, session, settings: DEFAULT_SETTINGS, statuses: [] };
+        await video.play();
+
+        await session.runCommand('next-reel');
+
+        expect(session.getStatus().lastNavigation).toMatchObject({ result: 'success', detail: 'reused-element' });
+        expect(video.paused).toBe(false);
+    });
+});
+
 describe('ReelSession commands', () => {
     it('toggles play and pause on the current Reel', async () => {
         const { page, session } = setup();
@@ -368,6 +531,6 @@ describe('ReelSession commands', () => {
     it('rejects commands outside the Reels page', async () => {
         const { session } = setup();
         history.replaceState({}, '', '/');
-        await expect(session.runCommand('next-reel')).rejects.toThrow('Open a Facebook Reel first.');
+        await expect(session.runCommand('next-reel')).rejects.toThrow('Open a Reel or Short first.');
     });
 });

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { findMuteButton, findNavigationButton, findReelVideo } from '@/content/reels/reel-dom';
+import { findMuteButton, findNavigationButton, findReelVideo } from '@/content/platforms/facebook/facebook-dom';
 import { findActiveVideo } from '@/content/video/active-video';
 
 function stubRect(element: Element, top: number, height: number): void {

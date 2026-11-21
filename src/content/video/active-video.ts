@@ -16,15 +16,25 @@ function isPlaying(video: HTMLVideoElement): boolean {
  */
 export function findActiveVideo(doc: Document): HTMLVideoElement | null {
     const view = doc.defaultView;
-    if (!view) return null;
+    return view ? pickActiveVideo(doc.querySelectorAll('video'), view) : null;
+}
 
+/**
+ * The same choice among videos the caller has already narrowed down. With `preferPlaying` off only the area counts,
+ * for a site that replays a finished video right after `ended` (so the old video plays again on its way out).
+ */
+export function pickActiveVideo(
+    videos: Iterable<HTMLVideoElement>,
+    view: Window,
+    preferPlaying = true,
+): HTMLVideoElement | null {
     let best: HTMLVideoElement | null = null;
     let bestScore = 0;
 
-    for (const video of doc.querySelectorAll('video')) {
+    for (const video of videos) {
         const area = visibleArea(video, view);
         // A playing video always beats a paused one; area breaks ties.
-        const score = (isPlaying(video) ? 1e9 : 0) + area;
+        const score = (preferPlaying && isPlaying(video) ? 1e9 : 0) + area;
         if (score > bestScore) {
             best = video;
             bestScore = score;

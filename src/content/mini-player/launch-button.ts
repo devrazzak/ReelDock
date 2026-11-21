@@ -8,31 +8,44 @@
  * found, it falls back to the bottom-left corner, which Facebook leaves empty.
  * Rendered in a closed shadow root so the page's CSS and ours cannot affect each other.
  */
-const SIZE = 48;
-const GAP_BELOW_ANCHOR = 16;
-const FALLBACK_MARGIN = 24;
+import { createElement, createSvg, type IconShape } from '../dom/build';
+import { CORNER_MARGIN, DEFAULT_THEME, type LaunchButtonTheme } from './launch-button-theme';
 
-// Matches Facebook's own up/down Reel buttons (measured on facebook.com, Nov 2026): a 48 px circle with a
-// 15 % white fill, 60 % opacity at rest and full opacity on hover; the icon draws its own white ring.
-const BUTTON_CSS = `
+const buildCss = ({ size, iconSize, background, shadow, color, restingOpacity, dark }: LaunchButtonTheme) => `
 :host { all: initial; position: fixed; z-index: 2147483647; }
 button {
-    width: ${SIZE}px; height: ${SIZE}px; border-radius: 50%; padding: 0; border: 0; cursor: pointer;
-    display: block; background: rgb(255 255 255 / 0.15); color: #fff; opacity: 0.6;
+    width: ${size}px; height: ${size}px; border-radius: 50%; padding: 0; border: 0; cursor: pointer;
+    display: grid; place-items: center; background: ${background}; box-shadow: ${shadow ?? 'none'}; color: ${color}; opacity: ${restingOpacity};
     transition: opacity 0.1s linear, transform 0.3s;
 }
 button:hover, button:focus-visible, button[aria-pressed='true'] { opacity: 1; }
 button:active { transform: scale(0.96); }
-button:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
-svg { width: ${SIZE}px; height: ${SIZE}px; display: block; }
+button:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
+svg { width: ${iconSize}px; height: ${iconSize}px; display: block; }
+${dark ? `:host-context(html[dark]) button, :host-context(html.__fb-dark-mode) button { background: ${dark.background}; color: ${dark.color}; }` : ''}
 `;
 
-// Ring like Facebook's icons, with a picture-in-picture glyph in the middle.
-const ICON = `<svg viewBox="0 0 24 24" aria-hidden="true">
-    <circle cx="12" cy="12" r="10.5" fill="none" stroke="currentColor" stroke-width="2" />
-    <rect x="7" y="8.25" width="10" height="7.5" rx="1.25" fill="none" stroke="currentColor" stroke-width="1.5" />
-    <rect x="11.5" y="11.75" width="4" height="2.75" rx="0.5" fill="currentColor" />
-</svg>`;
+// Picture-in-picture glyph. Facebook's own buttons draw a ring around their icon, so some themes add one.
+const RING: IconShape = {
+    tag: 'circle',
+    attrs: { cx: '12', cy: '12', r: '10.5', fill: 'none', stroke: 'currentColor', 'stroke-width': '2' },
+};
+const GLYPH: IconShape[] = [
+    {
+        tag: 'rect',
+        attrs: {
+            x: '7',
+            y: '8.25',
+            width: '10',
+            height: '7.5',
+            rx: '1.25',
+            fill: 'none',
+            stroke: 'currentColor',
+            'stroke-width': '1.5',
+        },
+    },
+    { tag: 'rect', attrs: { x: '11.5', y: '11.75', width: '4', height: '2.75', rx: '0.5', fill: 'currentColor' } },
+];
 
 export class LaunchButton {
     private readonly host: HTMLElement;
@@ -45,13 +58,16 @@ export class LaunchButton {
         doc: Document,
         private readonly getAnchor: () => HTMLElement | null,
         onClick: () => void,
+        private readonly theme: LaunchButtonTheme = DEFAULT_THEME,
     ) {
         this.host = doc.createElement('reeldock-launcher');
         const shadow = this.host.attachShadow({ mode: 'closed' });
-        shadow.innerHTML = `<style>${BUTTON_CSS}</style><button type="button">${ICON}</button>`;
-        const button = shadow.querySelector('button');
-        if (!button) throw new Error('Launch button markup is missing');
-        this.button = button;
+        const style = createElement(doc, 'style');
+        style.textContent = buildCss(theme);
+        this.button = createElement(doc, 'button', { type: 'button' }, [
+            createSvg(doc, theme.ring ? [RING, ...GLYPH] : GLYPH),
+        ]);
+        shadow.append(style, this.button);
         this.button.addEventListener('click', onClick);
         doc.defaultView?.addEventListener('resize', () => this.place());
         this.setOpen(false);
@@ -75,14 +91,19 @@ export class LaunchButton {
     private place(): void {
         const rect = this.getAnchor()?.getBoundingClientRect();
         const { style } = this.host;
+        const { size, gapBelowAnchor, fallbackPosition } = this.theme;
+        const view = this.host.ownerDocument.defaultView;
+        style.left = style.right = style.top = style.bottom = '';
+
         if (rect && rect.width > 0) {
-            style.left = `${Math.round(rect.left + rect.width / 2 - SIZE / 2)}px`;
-            style.top = `${Math.round(rect.bottom + GAP_BELOW_ANCHOR)}px`;
-            style.bottom = '';
+            style.left = `${Math.round(rect.left + rect.width / 2 - size / 2)}px`;
+            style.top = `${Math.round(rect.bottom + gapBelowAnchor)}px`;
+        } else if (fallbackPosition && view) {
+            style.right = `${fallbackPosition.right}px`;
+            style.top = `${Math.round(view.innerHeight / 2 + fallbackPosition.fromCenter)}px`;
         } else {
-            style.left = `${FALLBACK_MARGIN}px`;
-            style.top = '';
-            style.bottom = `${FALLBACK_MARGIN}px`;
+            style.left = `${CORNER_MARGIN}px`;
+            style.bottom = `${CORNER_MARGIN}px`;
         }
     }
 }

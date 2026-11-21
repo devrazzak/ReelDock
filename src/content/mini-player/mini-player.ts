@@ -1,5 +1,6 @@
+import { createElement, createSvg, type IconShape } from '@/content/dom/build';
 import { MINI_PLAYER_CSS } from '@/content/mini-player/mini-player.styles';
-import type { Direction } from '@/content/reels/reel-dom';
+import type { Direction } from '@/content/platforms/platform-adapter';
 import type { VideoStage } from '@/content/session/reel-session';
 
 export interface MiniPlayerHandlers {
@@ -22,16 +23,37 @@ const DRAG_THRESHOLD = 70;
 /** Movement below this is a click, not a drag. */
 const CLICK_TOLERANCE = 10;
 
+const path = (d: string): IconShape => ({ tag: 'path', attrs: { d } });
+const label10: IconShape = {
+    tag: 'text',
+    attrs: {
+        x: '12',
+        y: '16.5',
+        'font-size': '7',
+        'font-weight': '700',
+        'text-anchor': 'middle',
+        'font-family': 'system-ui,sans-serif',
+    },
+    text: '10',
+};
+
 const ICONS = {
-    previous: '<path d="M12 7.6 5.3 14.3l1.4 1.4L12 10.4l5.3 5.3 1.4-1.4z"/>',
-    next: '<path d="M12 16.4 5.3 9.7l1.4-1.4 5.3 5.3 5.3-5.3 1.4 1.4z"/>',
-    sound: '<path d="M4 9v6h4l5 4V5L8 9zm11.5 3a3.5 3.5 0 0 0-2-3.2v6.4a3.5 3.5 0 0 0 2-3.2zm-2-7.8v2.1a7 7 0 0 1 0 11.4v2.1a9 9 0 0 0 0-15.6z"/>',
-    muted: '<path d="M4 9v6h4l5 4V5L8 9zm16.6 3 2.1-2.1-1.4-1.4-2.1 2.1-2.1-2.1-1.4 1.4 2.1 2.1-2.1 2.1 1.4 1.4 2.1-2.1 2.1 2.1 1.4-1.4z"/>',
-    play: '<path d="M8 5v14l11-7z"/>',
-    pause: '<path d="M6 5h4v14H6zm8 0h4v14h-4z"/>',
-    back10: '<path d="M12 5V1L7 6l5 5V7a6 6 0 1 1-6 6H4a8 8 0 1 0 8-8z"/><text x="12" y="16.5" font-size="7" font-weight="700" text-anchor="middle" font-family="system-ui,sans-serif">10</text>',
-    forward10:
-        '<path d="M12 5V1l5 5-5 5V7a6 6 0 1 0 6 6h2a8 8 0 1 1-8-8z"/><text x="12" y="16.5" font-size="7" font-weight="700" text-anchor="middle" font-family="system-ui,sans-serif">10</text>',
+    previous: [path('M12 7.6 5.3 14.3l1.4 1.4L12 10.4l5.3 5.3 1.4-1.4z')],
+    next: [path('M12 16.4 5.3 9.7l1.4-1.4 5.3 5.3 5.3-5.3 1.4 1.4z')],
+    sound: [
+        path(
+            'M4 9v6h4l5 4V5L8 9zm11.5 3a3.5 3.5 0 0 0-2-3.2v6.4a3.5 3.5 0 0 0 2-3.2zm-2-7.8v2.1a7 7 0 0 1 0 11.4v2.1a9 9 0 0 0 0-15.6z',
+        ),
+    ],
+    muted: [
+        path(
+            'M4 9v6h4l5 4V5L8 9zm16.6 3 2.1-2.1-1.4-1.4-2.1 2.1-2.1-2.1-1.4 1.4 2.1 2.1-2.1 2.1 1.4 1.4 2.1-2.1 2.1 2.1 1.4-1.4z',
+        ),
+    ],
+    play: [path('M8 5v14l11-7z')],
+    pause: [path('M6 5h4v14H6zm8 0h4v14h-4z')],
+    back10: [path('M12 5V1L7 6l5 5V7a6 6 0 1 1-6 6H4a8 8 0 1 0 8-8z'), label10],
+    forward10: [path('M12 5V1l5 5-5 5V7a6 6 0 1 0 6 6h2a8 8 0 1 1-8-8z'), label10],
 };
 
 /**
@@ -43,8 +65,6 @@ export function wheelPixels(event: Pick<WheelEvent, 'deltaY' | 'deltaMode'>): nu
     if (event.deltaMode === 2) return event.deltaY * 800;
     return event.deltaY;
 }
-
-const svg = (path: string) => `<svg viewBox="0 0 24 24" aria-hidden="true">${path}</svg>`;
 
 interface PresentedVideo {
     video: HTMLVideoElement;
@@ -199,9 +219,9 @@ export class MiniPlayer implements VideoStage {
             'buffering',
             video !== null && !paused && video.readyState < HTMLMediaElement.HAVE_FUTURE_DATA,
         );
-        elements.play.innerHTML = svg(paused ? ICONS.play : ICONS.pause);
+        elements.play.replaceChildren(createSvg(elements.play.ownerDocument, paused ? ICONS.play : ICONS.pause));
         elements.play.setAttribute('aria-label', paused ? 'Play' : 'Pause');
-        elements.mute.innerHTML = svg(video?.muted ? ICONS.muted : ICONS.sound);
+        elements.mute.replaceChildren(createSvg(elements.mute.ownerDocument, video?.muted ? ICONS.muted : ICONS.sound));
         elements.mute.setAttribute('aria-label', video?.muted ? 'Unmute' : 'Mute');
         const progress = video && video.duration > 0 ? (video.currentTime / video.duration) * 100 : 0;
         elements.progress.style.width = `${progress}%`;
@@ -213,23 +233,38 @@ export class MiniPlayer implements VideoStage {
         style.textContent = MINI_PLAYER_CSS;
         doc.head.append(style);
 
-        doc.body.innerHTML = `
-            <div class="player paused" role="region" aria-label="ReelDock mini player">
-                <div class="stage"></div>
-                <div class="spinner" role="status" aria-label="Loading next Reel"></div>
-                <div class="paused-icon">${svg(ICONS.play)}</div>
-                <div class="controls side">
-                    <button type="button" data-action="previous" aria-label="Previous Reel">${svg(ICONS.previous)}</button>
-                    <button type="button" data-action="next" aria-label="Next Reel">${svg(ICONS.next)}</button>
-                    <button type="button" data-action="mute" aria-label="Mute">${svg(ICONS.sound)}</button>
-                </div>
-                <div class="controls bottom">
-                    <button type="button" data-action="back" aria-label="Back 10 seconds">${svg(ICONS.back10)}</button>
-                    <button type="button" class="large" data-action="play" aria-label="Pause">${svg(ICONS.pause)}</button>
-                    <button type="button" data-action="forward" aria-label="Forward 10 seconds">${svg(ICONS.forward10)}</button>
-                </div>
-                <div class="progress"><div class="progress-bar"></div></div>
-            </div>`;
+        const div = (className: string, children: Node[] = [], attrs: Record<string, string> = {}) =>
+            createElement(doc, 'div', { class: className, ...attrs }, children);
+        const button = (action: string, label: string, icon: IconShape[], className = '') =>
+            createElement(
+                doc,
+                'button',
+                { type: 'button', 'data-action': action, 'aria-label': label, ...(className && { class: className }) },
+                [createSvg(doc, icon)],
+            );
+
+        doc.body.replaceChildren(
+            div(
+                'player paused',
+                [
+                    div('stage'),
+                    div('spinner', [], { role: 'status', 'aria-label': 'Loading next video' }),
+                    div('paused-icon', [createSvg(doc, ICONS.play)]),
+                    div('controls side', [
+                        button('previous', 'Previous video', ICONS.previous),
+                        button('next', 'Next video', ICONS.next),
+                        button('mute', 'Mute', ICONS.sound),
+                    ]),
+                    div('controls bottom', [
+                        button('back', 'Back 10 seconds', ICONS.back10),
+                        button('play', 'Pause', ICONS.pause, 'large'),
+                        button('forward', 'Forward 10 seconds', ICONS.forward10),
+                    ]),
+                    div('progress', [div('progress-bar')]),
+                ],
+                { role: 'region', 'aria-label': 'ReelDock mini player' },
+            ),
+        );
 
         const find = (selector: string) => {
             const element = doc.querySelector<HTMLElement>(selector);

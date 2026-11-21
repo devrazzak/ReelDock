@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { wheelPixels } from '@/content/mini-player/mini-player';
-import { getReelId, isReelsPage } from '@/content/reels/reel-route';
+import { getReelId, isReelsPage } from '@/content/platforms/facebook/facebook-route';
 import { isLoopRestart } from '@/content/video/end-detection';
 import { isContentRequest } from '@/shared/messages';
 import { DEFAULT_SETTINGS, parseSettings } from '@/shared/settings';

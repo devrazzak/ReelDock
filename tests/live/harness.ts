@@ -10,9 +10,8 @@ import { isReallyHidden } from './real-visibility';
 
 import '@/page-world/visibility-guard.iife';
 
-import { findReelVideo } from '@/content/reels/reel-dom';
-import { createNavigationStrategies } from '@/content/reels/reel-navigator';
-import { getReelId } from '@/content/reels/reel-route';
+import { facebookAdapter } from '@/content/platforms/facebook/facebook-adapter';
+import { createNavigationStrategies } from '@/content/session/reel-navigator';
 import { ReelSession } from '@/content/session/reel-session';
 import { BACKGROUND_ATTRIBUTE } from '@/shared/dom-contract';
 import { DEFAULT_SETTINGS } from '@/shared/settings';
@@ -31,13 +30,14 @@ const log: LiveLogEntry[] = [];
 document.documentElement.setAttribute(BACKGROUND_ATTRIBUTE, 'on');
 
 const currentVideo = () => {
-    const id = getReelId(location.pathname);
-    return id ? findReelVideo(document, id) : null;
+    const id = facebookAdapter.getReelId(location.pathname);
+    return id ? facebookAdapter.findReelVideo(document, id) : null;
 };
 
 const session = new ReelSession({
     doc: document,
-    strategies: createNavigationStrategies(document, currentVideo),
+    platform: facebookAdapter,
+    strategies: createNavigationStrategies(document, facebookAdapter, currentVideo),
     getSettings: () => settings,
     isTabHidden: isReallyHidden,
     onStatus: status => {
@@ -65,7 +65,7 @@ const summary = () => {
     const reels = [...new Set(log.map(entry => entry.reelId))];
     return {
         reallyHidden: isReallyHidden(),
-        reelId: getReelId(location.pathname),
+        reelId: facebookAdapter.getReelId(location.pathname),
         currentPaused: video?.paused ?? null,
         currentMuted: video?.muted ?? null,
         playingVideos: playing,

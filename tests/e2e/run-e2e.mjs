@@ -1,13 +1,14 @@
 /**
  * End-to-end test in a real Chrome with the built extension loaded, driven over raw CDP.
  *
- * Facebook needs a login, so requests to www.facebook.com are answered with a local fixture
- * that imitates the verified Facebook behaviour (see fixture/reels.html). The Facebook tab is
+ * Facebook, YouTube and Instagram need a login or the network, so requests to their hosts are answered with a local
+ * fixture that imitates the verified behaviour (fixture/reels.html, shorts.html, instagram.html). The Facebook tab is
  * put in the background the way a user does it: another tab in the same window becomes active.
  *
  * Usage: pnpm test:e2e
  *   CHROME_PATH      Chrome for Testing or Chromium (branded Google Chrome ignores --load-extension)
  *   E2E_SCREENSHOTS  folder for popup.png (default: tests/e2e/)
+ *   E2E_ONLY         "instagram" runs only the Instagram checks
  */
 import { spawn } from 'node:child_process';
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
@@ -32,7 +33,7 @@ function check(name, passed, detail = '') {
 }
 
 /** Real visibility (bypassing the extension's page-world override) and the current Reel's video state. */
-const PAGE_STATE = `(() => {
+const pageState = findVideo => `(() => {
     if (!document.body) return { id: null, paused: null, muted: null, playing: 0 };
     const frame = document.createElement('iframe');
     frame.style.display = 'none';
@@ -40,15 +41,22 @@ const PAGE_STATE = `(() => {
     const getVisibility = Object.getOwnPropertyDescriptor(frame.contentWindow.Document.prototype, 'visibilityState').get;
     frame.remove();
     const id = location.pathname.split('/')[2];
-    const video = document.querySelector('[data-video-id="' + id + '"] video');
+    const video = ${findVideo};
     return {
         realVisibility: getVisibility.call(document),
         id,
+        playingId: video?.closest('[data-reel]')?.dataset.reel ?? null,
         paused: video ? video.paused : null,
         muted: video ? video.muted : null,
         playing: [...document.querySelectorAll('video')].filter(v => !v.paused).length,
     };
 })()`;
+const PAGE_STATE = pageState(`document.querySelector('[data-video-id="' + id + '"] video')`);
+const YOUTUBE_STATE = pageState(`document.querySelector('ytd-shorts video')`);
+// Instagram cards carry no id, and in a hidden tab the URL stays behind: follow the video that plays.
+const INSTAGRAM_STATE = pageState(
+    `([...document.querySelectorAll('video')].find(v => !v.paused) ?? document.querySelector('video'))`,
+);
 
 async function waitFor(read, predicate, timeoutMs = 10000) {
     const start = Date.now();
@@ -71,6 +79,8 @@ async function launchChrome() {
         '--disable-features=DisableLoadExtensionCommandLineSwitch',
         '--no-first-run',
         '--no-default-browser-check',
+        // A window covered by the user's other windows would otherwise report its active tab as hidden.
+        '--disable-backgrounding-occluded-windows',
         '--window-size=1000,800',
         'about:blank',
     ];
@@ -85,6 +95,13 @@ async function launchChrome() {
             ),
         value => value !== null,
     );
+    if (!version) {
+        chrome.kill();
+        throw new Error(
+            `Chrome did not start from "${chromePath}". Set CHROME_PATH to Chrome for Testing or Chromium ` +
+                '(branded Google Chrome ignores --load-extension).',
+        );
+    }
     const client = await CdpClient.connect(version.webSocketDebuggerUrl);
     const stop = async () => {
         client.close();
@@ -114,14 +131,24 @@ async function openTab(client, url) {
     return session;
 }
 
-/** Serves the fixture for every www.facebook.com request made by this tab. */
-async function serveFixture(client, session) {
+/** Reloads and waits for the new page. Page.reload returns while the old page is still alive and answering. */
+async function reloadAndWait(session) {
+    await session.evaluate('window.__beforeReload = true');
+    await session.send('Page.reload');
+    await waitFor(
+        () => session.evaluate('document.readyState === "complete" && !window.__beforeReload').catch(() => false),
+        ready => ready === true,
+    );
+}
+
+/** Serves the fixture page for every request to this host made by this tab; /__fixture/* serves the videos. */
+async function serveFixture(client, session, host = 'www.facebook.com', page = 'reels.html') {
     client.on(async message => {
         if (message.method !== 'Fetch.requestPaused' || message.sessionId !== session.sessionId) return;
         const { requestId, request } = message.params;
         const path = new URL(request.url).pathname;
         const isVideo = path.startsWith('/__fixture/');
-        const file = isVideo ? join(fixtureDir, path.replace('/__fixture/', '')) : join(fixtureDir, 'reels.html');
+        const file = isVideo ? join(fixtureDir, path.replace('/__fixture/', '')) : join(fixtureDir, page);
         await session.send('Fetch.fulfillRequest', {
             requestId,
             responseCode: 200,
@@ -129,7 +156,333 @@ async function serveFixture(client, session) {
             body: (await readFile(file)).toString('base64'),
         });
     });
-    await session.send('Fetch.enable', { patterns: [{ urlPattern: 'https://www.facebook.com/*' }] });
+    await session.send('Fetch.enable', { patterns: [{ urlPattern: `https://${host}/*` }] });
+}
+
+const YOUTUBE_MINI_STATE = `(() => {
+    const pip = documentPictureInPicture.window;
+    const video = pip?.document.querySelector('video');
+    return {
+        open: Boolean(pip),
+        id: location.pathname.split('/')[2],
+        inMiniPlayer: Boolean(video) && video.closest('ytd-shorts') === null,
+        miniVideoSrc: video ? video.currentSrc.split('/').pop() : null,
+        paused: video ? video.paused : null,
+        muted: video ? video.muted : null,
+        playing: [...document.querySelectorAll('video')].filter(v => !v.paused).length + (video && !video.paused ? 1 : 0),
+    };
+})()`;
+
+/**
+ * The same extension on a second site: a fixture that imitates YouTube Shorts (see fixture/shorts.html).
+ * One <video> is reused for every Short, and Shorts loop instead of firing "ended".
+ */
+async function runYoutubeChecks({ client, control, setSettings, hideTab }) {
+    await setSettings(true);
+    const tab = await openTab(client);
+    await serveFixture(client, tab, 'www.youtube.com', 'shorts.html');
+    await tab.send('Page.navigate', { url: 'https://www.youtube.com/shorts/sh_0001' });
+    const read = () => tab.evaluate(YOUTUBE_STATE);
+    const showTab = () =>
+        control.evaluate(`(async () => {
+            const [tab] = await chrome.tabs.query({ url: 'https://www.youtube.com/*' });
+            await chrome.tabs.update(tab.id, { active: true });
+            await chrome.windows.update(tab.windowId, { focused: true });
+        })()`);
+    const shortFile = id => `short-${Number(id.slice(3))}.mp4`;
+
+    let state = await waitFor(read, s => s.paused === false);
+    check('YouTube: Short starts playing', state.paused === false, `short ${state.id}`);
+    await tab.click('ytd-shorts [aria-label="Unmute (m)"]'); // trusted click = user activation
+    state = await waitFor(read, s => s.muted === false);
+    check('YouTube: sound is on after the user clicks Unmute', state.muted === false);
+
+    await hideTab();
+    state = await waitFor(read, s => s.realVisibility === 'hidden');
+    check('YouTube: tab is really in the background', state.realVisibility === 'hidden', state.realVisibility);
+    // Shorts are 4 s and loop. Auto next has to notice the loop restart and move on by itself.
+    const visited = [state.id];
+    for (let i = 0; i < 120 && visited.length < 4; i++) {
+        await sleep(250);
+        const now = await read();
+        if (visited.at(-1) !== now.id) visited.push(now.id);
+    }
+    check(
+        'YouTube: auto next moved through every Short while hidden',
+        visited.join(',') === 'sh_0001,sh_0002,sh_0003,sh_0004',
+        visited.join(' → '),
+    );
+    state = await waitFor(read, s => s.id === 'sh_0004' && s.paused === false, 5000);
+    check(
+        'YouTube: last Short is playing with sound in the background',
+        state.paused === false && state.muted === false,
+        JSON.stringify(state),
+    );
+    check('YouTube: only one video plays at a time', state.playing === 1, `${state.playing} playing`);
+
+    // ---- Mini player ----
+    await showTab();
+    await tab.evaluate(`history.replaceState({}, '', '/shorts/sh_0001')`);
+    await reloadAndWait(tab);
+    await waitFor(read, s => s.paused === false);
+    await tab.click('ytd-shorts [aria-label="Unmute (m)"]');
+    state = await waitFor(read, s => s.muted === false, 3000);
+    check('YouTube: sound is on again after reloading the page', state.muted === false, JSON.stringify(state));
+    const launcher = await tab.evaluate(`(() => {
+        const host = document.querySelector('reeldock-launcher').getBoundingClientRect();
+        const next = document.querySelector('ytd-shorts [aria-label="Next video"]').getBoundingClientRect();
+        return {
+            x: host.left + host.width / 2,
+            y: host.top + host.height / 2,
+            gap: host.top - next.bottom,
+            dx: host.left + host.width / 2 - (next.left + next.width / 2),
+        };
+    })()`);
+    check(
+        'YouTube: mini player button sits right under the next button',
+        Math.abs(launcher.gap - 16) <= 1 && Math.abs(launcher.dx) <= 1,
+        JSON.stringify(launcher),
+    );
+    await tab.clickAt(launcher.x, launcher.y);
+    const readMini = () => tab.evaluate(YOUTUBE_MINI_STATE);
+    let mini = await waitFor(readMini, m => m.open && m.paused === false);
+    check(
+        'YouTube: mini player opens and plays the Short',
+        mini.open && mini.inMiniPlayer && mini.paused === false && mini.miniVideoSrc === shortFile(mini.id),
+        JSON.stringify(mini),
+    );
+
+    const pipTarget = await waitFor(
+        async () =>
+            (await client.send('Target.getTargets')).targetInfos.find(
+                t => t.type === 'page' && t.openerId === tab.targetId && t.url === 'about:blank',
+            ),
+        target => Boolean(target),
+    );
+    const pip = await client.attach(pipTarget.targetId);
+    await pip.send('Runtime.enable');
+
+    await pip.wheel(180, 320, 150);
+    mini = await waitFor(readMini, m => m.id === 'sh_0002' && m.paused === false);
+    check(
+        'YouTube: mouse wheel in the mini player goes to the next Short',
+        mini.id === 'sh_0002' && mini.miniVideoSrc === shortFile('sh_0002') && mini.paused === false,
+        JSON.stringify(mini),
+    );
+    check('YouTube: sound stays on in the mini player', mini.muted === false);
+
+    // Mute with the M key through YouTube's own button, change Short: the next one must stay muted.
+    await pip.press('m', 'KeyM');
+    await sleep(300);
+    await pip.press('ArrowUp', 'ArrowUp'); // previous Short
+    mini = await waitFor(readMini, m => m.id === 'sh_0001' && m.paused === false);
+    await sleep(600);
+    mini = await readMini();
+    check(
+        'YouTube: muting in the mini player carries over to the next Short',
+        mini.id === 'sh_0001' && mini.muted === true,
+        JSON.stringify(mini),
+    );
+
+    await hideTab();
+    mini = await waitFor(readMini, m => m.id === 'sh_0002' && m.paused === false, 10000);
+    check(
+        'YouTube: auto next continues inside the mini player while the tab is hidden',
+        mini.id === 'sh_0002' && mini.inMiniPlayer && mini.paused === false,
+        JSON.stringify(mini),
+    );
+
+    await tab.evaluate('documentPictureInPicture.window.close()');
+    await sleep(800);
+    const back = await tab.evaluate(`(() => {
+        const video = document.querySelector('ytd-shorts video');
+        return { inPlayer: Boolean(video), file: video?.currentSrc.split('/').pop(), paused: video?.paused };
+    })()`);
+    state = await read();
+    check(
+        'YouTube: closing the mini player returns the video to YouTube and keeps playing',
+        back.inPlayer && back.file === shortFile(state.id) && back.paused === false,
+        JSON.stringify(back),
+    );
+    await showTab();
+
+    // ---- Control: background playback off ----
+    await setSettings(false);
+    await sleep(300);
+    await hideTab();
+    state = await waitFor(read, s => s.paused === true, 3000);
+    check(
+        'YouTube control: with background playback off, the page pauses when hidden',
+        state.realVisibility === 'hidden' && state.paused === true,
+    );
+    await client.send('Target.closeTarget', { targetId: tab.targetId });
+}
+
+const INSTAGRAM_MINI_STATE = `(() => {
+    const pip = documentPictureInPicture.window;
+    const video = pip?.document.querySelector('video');
+    return {
+        open: Boolean(pip),
+        id: location.pathname.split('/')[2],
+        inMiniPlayer: Boolean(video) && video.closest('[data-reel]') === null,
+        miniVideoSrc: video ? video.currentSrc.split('/').pop() : null,
+        paused: video ? video.paused : null,
+        muted: video ? video.muted : null,
+        playing: [...document.querySelectorAll('video')].filter(v => !v.paused).length + (video && !video.paused ? 1 : 0),
+    };
+})()`;
+
+/**
+ * The same extension on a third site: a fixture that imitates Instagram Reels (see fixture/instagram.html).
+ * The site changes the URL before it pauses the old video, pauses a video that left its card, and scrolls only
+ * on rendered frames, so in a hidden tab the extension moves to a neighbouring video itself.
+ */
+async function runInstagramChecks({ client, control, setSettings, hideTab }) {
+    await setSettings(true);
+    const tab = await openTab(client);
+    await serveFixture(client, tab, 'www.instagram.com', 'instagram.html');
+    await tab.send('Page.navigate', { url: 'https://www.instagram.com/reels/ig_0001/' });
+    const read = () => tab.evaluate(INSTAGRAM_STATE);
+    const showTab = () =>
+        control.evaluate(`(async () => {
+            const [tab] = await chrome.tabs.query({ url: 'https://www.instagram.com/*' });
+            await chrome.tabs.update(tab.id, { active: true });
+            await chrome.windows.update(tab.windowId, { focused: true });
+        })()`);
+    const reelFile = id => `reel-${Number(id.slice(3))}.mp4`;
+
+    let state = await waitFor(read, s => s.paused === false);
+    check('Instagram: Reel starts playing', state.paused === false, `reel ${state.playingId}`);
+    await tab.click('[aria-label="Audio is muted"]'); // trusted click = user activation
+    state = await waitFor(read, s => s.muted === false);
+    check('Instagram: sound is on after the user clicks the mute button', state.muted === false);
+
+    await hideTab();
+    state = await waitFor(read, s => s.realVisibility === 'hidden');
+    check('Instagram: tab is really in the background', state.realVisibility === 'hidden', state.realVisibility);
+    // The site's own buttons do nothing here, so auto next has to move to the loaded neighbour itself.
+    const visited = [state.playingId];
+    const log = [];
+    for (let i = 0; i < 160 && visited.length < 4; i++) {
+        await sleep(250);
+        const now = await read();
+        // Evidence only: when the order is wrong, this shows which Reel played when and how many played together.
+        log.push(`${i * 250}ms ${now.playingId}x${now.playing}`);
+        if (now.playingId && visited.at(-1) !== now.playingId) visited.push(now.playingId);
+    }
+    check(
+        'Instagram: auto next moved through every Reel while hidden',
+        visited.join(',') === 'ig_0001,ig_0002,ig_0003,ig_0004',
+        visited.join(' → ') + (visited.join(',') === 'ig_0001,ig_0002,ig_0003,ig_0004' ? '' : ` | ${log.join(', ')}`),
+    );
+    state = await waitFor(read, s => s.playingId === 'ig_0004' && s.paused === false, 5000);
+    check(
+        'Instagram: last Reel is playing with sound in the background',
+        state.paused === false && state.muted === false,
+        JSON.stringify(state),
+    );
+    check('Instagram: only one video plays at a time', state.playing === 1, `${state.playing} playing`);
+
+    await showTab();
+    state = await waitFor(read, s => s.realVisibility === 'visible' && s.id === s.playingId && s.playing === 1, 5000);
+    check(
+        'Instagram: back in the tab, the URL follows the Reel that plays and only one video plays',
+        state.id === 'ig_0004' && state.id === state.playingId && state.playing === 1,
+        JSON.stringify(state),
+    );
+
+    // ---- Mini player ----
+    await tab.evaluate(`history.replaceState({}, '', '/reels/ig_0001/')`);
+    await reloadAndWait(tab);
+    await waitFor(read, s => s.paused === false);
+    await tab.click('[aria-label="Audio is muted"]');
+    state = await waitFor(read, s => s.muted === false, 3000);
+    check('Instagram: sound is on again after reloading the page', state.muted === false, JSON.stringify(state));
+    const launcher = await tab.evaluate(`(() => {
+        const host = document.querySelector('reeldock-launcher').getBoundingClientRect();
+        const next = document.querySelector('[aria-label="Navigate to next Reel"]').getBoundingClientRect();
+        return {
+            x: host.left + host.width / 2,
+            y: host.top + host.height / 2,
+            gap: host.top - next.bottom,
+            dx: host.left + host.width / 2 - (next.left + next.width / 2),
+        };
+    })()`);
+    check(
+        'Instagram: mini player button sits right under the next button',
+        Math.abs(launcher.gap - 16) <= 1 && Math.abs(launcher.dx) <= 1,
+        JSON.stringify(launcher),
+    );
+    await tab.clickAt(launcher.x, launcher.y);
+    const readMini = () => tab.evaluate(INSTAGRAM_MINI_STATE);
+    let mini = await waitFor(readMini, m => m.open && m.paused === false);
+    check(
+        'Instagram: mini player opens and plays the Reel',
+        mini.open && mini.inMiniPlayer && mini.paused === false && mini.miniVideoSrc === reelFile(mini.id),
+        JSON.stringify(mini),
+    );
+
+    const pipTarget = await waitFor(
+        async () =>
+            (await client.send('Target.getTargets')).targetInfos.find(
+                t => t.type === 'page' && t.openerId === tab.targetId && t.url === 'about:blank',
+            ),
+        target => Boolean(target),
+    );
+    const pip = await client.attach(pipTarget.targetId);
+    await pip.send('Runtime.enable');
+
+    // The site changes the URL before it pauses the old video; the mini player must still get the NEW video.
+    await pip.wheel(180, 320, 150);
+    mini = await waitFor(readMini, m => m.id === 'ig_0002' && m.paused === false);
+    await sleep(800);
+    mini = await readMini();
+    check(
+        'Instagram: mouse wheel in the mini player shows the next Reel, not the old one again',
+        mini.id === 'ig_0002' && mini.miniVideoSrc === reelFile('ig_0002') && mini.paused === false,
+        JSON.stringify(mini),
+    );
+    check('Instagram: only the mini player video plays', mini.playing === 1, `${mini.playing} playing`);
+    check('Instagram: sound stays on in the mini player', mini.muted === false);
+
+    await pip.clickAt(120, 300);
+    await sleep(1800);
+    mini = await readMini();
+    check('Instagram: a pause from the user in the mini player stays', mini.paused === true, JSON.stringify(mini));
+    await pip.clickAt(120, 300);
+    mini = await waitFor(readMini, m => m.paused === false, 3000);
+    check('Instagram: another click plays again', mini.paused === false);
+
+    await hideTab();
+    mini = await waitFor(readMini, m => m.miniVideoSrc === reelFile('ig_0003') && m.paused === false, 10000);
+    check(
+        'Instagram: auto next continues inside the mini player while the tab is hidden',
+        mini.inMiniPlayer && mini.miniVideoSrc === reelFile('ig_0003') && mini.paused === false,
+        JSON.stringify(mini),
+    );
+
+    await tab.evaluate('documentPictureInPicture.window.close()');
+    await sleep(800);
+    const back = await tab.evaluate(`(() => {
+        const video = [...document.querySelectorAll('video')].find(v => !v.paused);
+        return { inCard: Boolean(video?.closest('[data-reel]')), paused: video ? video.paused : null };
+    })()`);
+    check(
+        'Instagram: closing the mini player returns the video to its card and keeps playing',
+        back.inCard && back.paused === false,
+        JSON.stringify(back),
+    );
+    await showTab();
+
+    // ---- Control: background playback off ----
+    await setSettings(false);
+    await sleep(300);
+    await hideTab();
+    state = await waitFor(read, s => s.paused === true, 3000);
+    check(
+        'Instagram control: with background playback off, the page pauses when hidden',
+        state.realVisibility === 'hidden' && state.paused === true,
+    );
 }
 
 async function main() {
@@ -155,7 +508,22 @@ async function main() {
             control.evaluate(`(async () => {
                 const [tab] = await chrome.tabs.query({ url: 'https://www.facebook.com/*' });
                 await chrome.tabs.update(tab.id, { active: true });
+                await chrome.windows.update(tab.windowId, { focused: true });
             })()`);
+
+        // Records which tab or window changes while the Reels tab should stay hidden. Printed if that check fails.
+        await control.evaluate(`(() => {
+            globalThis.__tabEvents = [];
+            const log = (event, detail) => __tabEvents.push({ at: Date.now(), event, detail });
+            chrome.tabs.onActivated.addListener(info => log('tab-activated', info.tabId));
+            chrome.windows.onFocusChanged.addListener(id => log('window-focus', id));
+        })()`);
+
+        // E2E_ONLY=instagram runs just the Instagram checks (faster while working on that adapter).
+        if (process.env.E2E_ONLY === 'instagram') {
+            await runInstagramChecks({ client, control, setSettings, hideTab: hideReels });
+            return report();
+        }
 
         // ---- Run 1: background playback on ----
         await setSettings(true);
@@ -179,14 +547,38 @@ async function main() {
         // Fixture Reels are 3 s long. Watch ~12 s while the tab stays hidden.
         const visited = [state.id];
         let alwaysHidden = true;
+        const visibilityChanges = [];
+        let lastVisibility = state.realVisibility;
+        const loopStart = Date.now();
         for (let i = 0; i < 48; i++) {
             await sleep(250);
             const now = await readReels();
             alwaysHidden &&= now.realVisibility === 'hidden';
+            if (now.realVisibility !== lastVisibility) {
+                visibilityChanges.push(`${Date.now() - loopStart}ms ${lastVisibility} -> ${now.realVisibility}`);
+                lastVisibility = now.realVisibility;
+            }
             if (visited.at(-1) !== now.id) visited.push(now.id);
         }
         state = await readReels();
-        check('Tab stayed hidden for the whole run', alwaysHidden);
+        check('Tab stayed hidden for the whole run', alwaysHidden, visibilityChanges.join(', '));
+        if (!alwaysHidden) {
+            // Evidence only: it must never hide the failure it explains. Tabs without host access have no url.
+            try {
+                const events = await control.evaluate('__tabEvents');
+                const tabs = await control.evaluate(
+                    `chrome.tabs.query({}).then(all => all.map(t => ({ id: t.id, active: t.active, windowId: t.windowId, url: (t.url ?? '').slice(0, 50) })))`,
+                );
+                console.log(
+                    '  loop started at 0ms; events:',
+                    JSON.stringify(events.map(e => ({ ...e, at: e.at - loopStart }))),
+                );
+                console.log('  tabs now:', JSON.stringify(tabs));
+            } catch (error) {
+                console.log('  could not read tab events:', error.message);
+            }
+        }
+
         check(
             'Auto next moved through every Reel while hidden',
             visited.join(',') === '1001,1002,1003,1004',
@@ -230,11 +622,11 @@ async function main() {
         await waitFor(
             () =>
                 control.evaluate(
-                    `Boolean(document.querySelector('button[aria-label="Previous Reel"]:not(:disabled)'))`,
+                    `Boolean(document.querySelector('button[aria-label="Previous video"]:not(:disabled)'))`,
                 ),
             enabled => enabled,
         );
-        await control.click('button[aria-label="Previous Reel"]');
+        await control.click('button[aria-label="Previous video"]');
         state = await waitFor(readReels, s => s.id === '1003' && s.paused === false);
         check(
             'Popup "Previous" moves back and plays while the tab is hidden',
@@ -416,10 +808,22 @@ async function main() {
             'Control: with background playback off, the page pauses when hidden',
             state.realVisibility === 'hidden' && state.paused === true,
         );
+
+        // ---- YouTube Shorts ----
+        await showReels();
+        await client.send('Target.closeTarget', { targetId: reels.targetId });
+        await runYoutubeChecks({ client, control, setSettings, hideTab: hideReels });
+
+        // ---- Instagram Reels ----
+        await runInstagramChecks({ client, control, setSettings, hideTab: hideReels });
     } finally {
         await stop();
     }
 
+    report();
+}
+
+function report() {
     const failed = results.filter(result => !result.passed).length;
     console.log(`\n${results.length - failed}/${results.length} checks passed`);
     process.exitCode = failed === 0 ? 0 : 1;

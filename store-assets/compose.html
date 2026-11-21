@@ -1,7 +1,7 @@
 <!doctype html>
 <!--
     Store listing images, composed from the raw captures in ./raw (made by scripts/store-screenshots.mjs).
-    Open with ?shot=1|2|3|tile and screenshot at 1280×800 (tile: 440×280).
+    Open with ?shot=1|2|3|4|5|6|7|8|tile and screenshot at 1280×800 (tile: 440×280).
 -->
 <html lang="en">
     <head>
@@ -182,31 +182,129 @@
                     <img class="shot" src="raw/popup-dark-cropped.png" style="left:920px;top:150px;width:300px" />
                     ${brand}`,
                 4: (() => {
-                    // Show the right part of the captured Reels page inside a window, and ring the button.
-                    const crop = { x: 330, y: 20, width: 935 };
+                    // The right part of the real Facebook page (store-assets/real, 3600×2014), the button ringed.
+                    const button = { x: 3527, y: 1253, size: 92 };
                     const box = { left: 540, top: 90, width: 700, height: 600 };
+                    const crop = { x: 1450, width: 2150 };
                     const scale = box.width / crop.width;
-                    const { left, top, width, height } = window.LAUNCHER;
-                    const cx = box.left + (left + width / 2 - crop.x) * scale;
-                    const cy = box.top + (top + height / 2 - crop.y) * scale;
-                    const ring = width * scale + 26;
+                    crop.y = Math.round(button.y - box.height / scale / 2);
+                    const cx = box.left + (button.x - crop.x) * scale;
+                    const cy = box.top + (button.y - crop.y) * scale;
+                    const ring = button.size * scale + 26;
                     return `
                     <div class="copy">
                         <div class="eyebrow">Where to find it</div>
                         <h1>One click opens the mini player</h1>
-                        <p>On any Facebook Reel, click the button under the up and down arrows on the right.</p>
+                        <p>On any Reel or Short, click the button under the up and down arrows on the right.</p>
                     </div>
-                    <div class="work" style="left:${box.left}px;top:${box.top}px;width:${box.width}px;height:${box.height}px;background:#111">
-                        <img src="raw/reels-page.png" alt="" style="position:absolute;width:${1280 * scale}px;left:${-crop.x * scale}px;top:${-crop.y * scale}px" />
+                    <div class="work" style="left:${box.left}px;top:${box.top}px;width:${box.width}px;height:${box.height}px;background:#000">
+                        <img src="real/facebook.png" alt="" style="position:absolute;width:${3600 * scale}px;left:${-crop.x * scale}px;top:${-crop.y * scale}px" />
                     </div>
                     <div style="position:absolute;left:${cx - ring / 2}px;top:${cy - ring / 2}px;width:${ring}px;height:${ring}px;border:4px solid #fff;border-radius:50%;box-shadow:0 0 0 8px rgb(255 255 255 / 0.25)"></div>
-                    <div class="label" style="left:${cx - ring / 2 - 300}px;top:${cy - 20}px;font-size:17px;background:#fff;color:#7d0209;font-weight:600">Click here to open the mini player →</div>
+                    <div class="label" style="left:${cx - 330}px;top:${cy + ring / 2 + 18}px;font-size:17px;background:#fff;color:#7d0209;font-weight:600">Click here to open the mini player ↗</div>
                     ${brand}`;
                 })(),
+                5: (() => {
+                    // Real pages from the user's browser, with our demo Reel in place of the video and personal
+                    // details removed (store-assets/real). The logos are the official SVGs, unmodified.
+                    const sites = [
+                        { name: 'Facebook Reels', image: 'real/facebook.png', icon: 'logos/facebook-white.svg' },
+                        { name: 'YouTube Shorts', image: 'real/youtube.png', icon: '../public/site-icons/youtube.svg' },
+                        {
+                            name: 'Instagram Reels',
+                            image: 'real/instagram.png',
+                            icon: '../public/site-icons/instagram.svg',
+                        },
+                    ];
+                    // A 2×2 grid: the text in the first cell, one whole page in each of the others.
+                    const width = 560;
+                    const height = Math.round((width * 2014) / 3600);
+                    const cells = [
+                        { left: 660, top: 40 },
+                        { left: 60, top: 420 },
+                        { left: 660, top: 420 },
+                    ];
+                    const windows = sites
+                        .map(
+                            ({ name, image, icon }, index) => `
+                    <div class="work" style="left:${cells[index].left}px;top:${cells[index].top}px;width:${width}px">
+                        <div class="bar" style="gap:10px;font-size:14px;color:#fff">
+                            <img src="${icon}" alt="" style="width:18px;height:18px" />${name}
+                        </div>
+                        <img src="${image}" alt="" style="display:block;width:${width}px;height:${height}px" />
+                    </div>`,
+                        )
+                        .join('');
+                    return `
+                    <div style="position:absolute;left:60px;top:70px;width:540px">
+                        <div class="eyebrow">Three sites, one extension</div>
+                        <h1>Works on Facebook, YouTube and Instagram</h1>
+                        <p>The same background playback, auto next and mini player on every Reels and Shorts page.</p>
+                    </div>
+                    ${windows}
+                    <div class="brand" style="left:60px;bottom:auto;top:330px">
+                        <img src="raw/icon-128.png" alt="" />ReelDock
+                    </div>`;
+                })(),
+                // One real page per site (store-assets/real), the launch button ringed. Button centres were measured
+                // on the 3600×2014 page images.
+                ...Object.fromEntries(
+                    [
+                        [
+                            '6',
+                            'Facebook Reels',
+                            'facebook',
+                            'logos/facebook-white.svg',
+                            'Keeps playing in the background',
+                            3527,
+                            1253,
+                        ],
+                        [
+                            '7',
+                            'YouTube Shorts',
+                            'youtube',
+                            '../public/site-icons/youtube.svg',
+                            'Next Short starts by itself',
+                            3494,
+                            1293,
+                        ],
+                        [
+                            '8',
+                            'Instagram Reels',
+                            'instagram',
+                            '../public/site-icons/instagram.svg',
+                            'One click opens the mini player',
+                            3477,
+                            1185,
+                        ],
+                    ].map(([key, name, image, icon, title, bx, by]) => {
+                        const box = { left: 120, top: 160, width: 1040 };
+                        const scale = box.width / 3600;
+                        const height = Math.round(2014 * scale);
+                        const cx = box.left + bx * scale;
+                        const cy = box.top + 34 + by * scale;
+                        const ring = 54;
+                        return [
+                            key,
+                            `
+                    <div style="position:absolute;left:120px;top:42px;display:flex;align-items:center;gap:14px">
+                        <img src="${icon}" alt="" style="width:30px;height:30px" />
+                        <div class="eyebrow" style="margin:0">${name}</div>
+                    </div>
+                    <h1 style="position:absolute;left:120px;top:82px;margin:0;font-size:44px">${title}</h1>
+                    <div class="work" style="left:${box.left}px;top:${box.top}px;width:${box.width}px">
+                        <div class="bar"><i></i><i></i><i></i></div>
+                        <img src="real/${image}.png" alt="" style="display:block;width:${box.width}px;height:${height}px" />
+                    </div>
+                    <div style="position:absolute;left:${cx - ring / 2}px;top:${cy - ring / 2}px;width:${ring}px;height:${ring}px;border:4px solid #e0182d;border-radius:50%;box-shadow:0 0 0 6px rgb(224 24 45 / 0.3)"></div>
+                    <div class="label" style="left:${cx - ring / 2 - 210}px;top:${cy - 20}px;font-size:16px;background:#e0182d;color:#fff;font-weight:600">Mini player button →</div>`,
+                        ];
+                    }),
+                ),
                 tile: `
                     <img src="raw/icon-128.png" alt="" />
                     <h1>ReelDock</h1>
-                    <p>Facebook Reels auto scroll &amp; mini player</p>`,
+                    <p>Auto scroll Reels &amp; Shorts, mini player</p>`,
             };
 
             if (shot === 'tile') document.body.classList.add('tile');

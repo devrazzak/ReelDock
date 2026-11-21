@@ -28,7 +28,7 @@ export function PlayerControls({ status, onCommand }: PlayerControlsProps) {
                 <BackTenIcon className="size-6" />
             </IconButton>
             <IconButton
-                label="Previous Reel"
+                label="Previous video"
                 variant="outline"
                 size="lg"
                 rounded="full"
@@ -47,7 +47,7 @@ export function PlayerControls({ status, onCommand }: PlayerControlsProps) {
                 {isPlaying ? <PauseIcon className="size-7" /> : <PlayIcon className="size-7" />}
             </IconButton>
             <IconButton
-                label="Next Reel"
+                label="Next video"
                 variant="outline"
                 size="lg"
                 rounded="full"

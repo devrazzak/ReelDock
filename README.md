@@ -1,16 +1,19 @@
-# ReelDock – Facebook Reels Auto Scroll & Mini Player
+# ReelDock – Auto Scroll Reels & Shorts, Mini Player
 
-A Chrome extension (Manifest V3) that keeps Facebook Reels playing while you work in other tabs,
-moves to the next Reel automatically when one finishes, and can show Reels in a floating mini player
-(scroll, drag or arrow keys to change Reel). Works in Chrome 116+ on macOS, Windows, Linux and ChromeOS.
+A Chrome extension (Manifest V3) that keeps **Facebook Reels, YouTube Shorts and Instagram Reels** playing while you work in other tabs,
+moves to the next video automatically when one finishes, and can show them in a floating mini player
+(scroll, drag or arrow keys to change video). Works in Chrome 116+ on macOS, Windows, Linux and ChromeOS.
 
-- Uses Facebook's own `<video>` elements and its own "Next Card" button. Nothing is downloaded,
+**[Install from the Chrome Web Store](https://chromewebstore.google.com/detail/mfonmdebpphmglhajkcamcbaplaghnjk)**
+
+- Uses each site's own `<video>` elements and its own navigation. Nothing is downloaded,
   re-streamed, faked or looped.
 - Popup built with [`@rax-ds/ui`](https://www.npmjs.com/package/@rax-ds/ui) (React 19, Tailwind CSS v4).
-- One permission (`storage`) plus host access to `facebook.com` only. No analytics, no network requests.
+- One permission (`storage`) plus host access to `facebook.com`, `youtube.com` and `instagram.com` only. No analytics, no network requests.
 
 ## How it works
 
+Each site has its own adapter (`src/content/platforms/<site>/`); the session, mini player and popup are shared.
 Findings from inspecting facebook.com (Nov 2026) shaped the design:
 
 | Observation on facebook.com/reel                                                                                                                                           | Consequence                                                                                                         |
@@ -26,17 +29,28 @@ Findings from inspecting facebook.com (Nov 2026) shaped the design:
 | Moving Facebook's (MSE-backed) `<video>` into a Document Picture-in-Picture window keeps it playing; moving it back restores Facebook's page.                              | The mini player shows Facebook's own element; nothing is copied or re-streamed.                                     |
 | Chrome's autoplay check uses the video's own document. A wheel scroll is not a user activation, so `play()` inside the mini player window can be blocked.                  | Each new Reel is started while still in Facebook's page (which has the user's click), then moved into the window.   |
 
+Instagram Reels (instagram.com/reels, inspected Nov 2026):
+
+- The URL is `/reels/<id>/`, but a card has no id. The feed is a scroll-snap list with one `<video>` per card; three or four neighbours are already loaded.
+- At the end Instagram replays the same video (no `loop`, no auto advance). Its own "Navigate to next Reel" button scrolls smoothly and the URL changes 0.4–1.8 s later, before Instagram pauses the old video, so the current video is picked by screen area, not by "playing".
+- In a hidden tab the scroll animation does not run, so the adapter moves to the next already loaded video itself. The URL catches up when the tab is shown again. This works through the loaded videos only.
+
+YouTube Shorts (youtube.com/shorts):
+
+- One `<video>` element is reused for every Short; only its source changes, so a new Short is detected by the source, not by a new element.
+- A small page-world script (`youtube-bridge`) lets the content script move to the next Short while the tab is in the background.
+
 ```text
 src/
 ├── page-world/visibility-guard.iife.ts  MAIN world, document_start: Page Visibility override (toggle via <html> attribute)
+├── page-world/youtube-bridge.iife.ts    MAIN world, YouTube only: next Short while the tab is in the background
 ├── content/
 │   ├── main.iife.ts                     composition root: settings, messaging, status port, mini player wiring
 │   ├── session/reel-session.ts          completion → navigate once → verify → hand over playback (page or VideoStage)
 │   ├── mini-player/                     Document PiP window (wheel, drag, keys, buttons) + launch button on the page
-│   ├── reels/reel-dom.ts                the only file with assumptions about Facebook's markup
-│   ├── reels/reel-navigator.ts          ordered strategies: Next Card button, then scroll (visible tab only)
-│   ├── reels/reel-route.ts              /reel/<id> parsing
-│   └── video/                           active-video fallback, loop-restart detection
+│   ├── platforms/<site>/                one adapter per site (facebook, youtube, instagram): route, DOM, adapter
+│   ├── session/reel-navigator.ts        ordered strategies: page navigation, navigation button, scroll
+│   └── video/                           active-video pick, loop-restart detection
 ├── background/service-worker.ts         keyboard shortcuts only; stateless
 ├── popup/                               React UI (settings, controls, live status)
 └── shared/                              settings schema, typed messages, status model
@@ -71,19 +85,19 @@ pnpm build
 
 1. Open `chrome://extensions`, turn on **Developer mode**.
 2. **Load unpacked** → select the `dist` folder.
-3. Reload any Facebook tab that was already open.
+3. Reload any Facebook, YouTube or Instagram tab that was already open.
 
 During development `pnpm dev` rebuilds on change (reload the extension in `chrome://extensions` for
 content-script changes).
 
 ## Use
 
-1. Open a Reel on facebook.com and click it once, then click **Unmute**. Chrome only allows sound after
+1. Open a Reel or Short (facebook.com/reel, youtube.com/shorts, instagram.com/reels) and click it once, then click **Unmute**. Chrome only allows sound after
    you interact with the page; the extension never works around that.
 2. Switch to any other tab. The Reel keeps playing and the next Reel starts when it ends.
 3. The popup shows playback state, whether the tab is in the background, the current Reel and the last
    auto next, and has Previous / Play-Pause / Next controls.
-4. **Mini player:** click the **⧉** button under Facebook's up/down arrows on the right of the Reels page. A floating window opens
+4. **Mini player:** click the **⧉** button under the site's up/down arrows on the right of the page. A floating window opens
    on top of every app; move and resize it anywhere. Inside it:
 
     | Input                              | Action                                            |
@@ -96,11 +110,11 @@ content-script changes).
     | `Space`, `M`                       | Play/pause, mute                                  |
     | Buttons on hover                   | Previous, next, mute, ±10 s, play/pause           |
 
-    A spinner shows while a Reel loads. Mute uses Facebook's own Mute button, so the choice carries
-    over to the next Reels.
+    A spinner shows while a Reel loads. Mute uses the site's own mute control, so the choice carries
+    over to the next videos.
 
     Auto next keeps working inside it, also while the Facebook tab is in the background. Closing the
-    window puts the Reel back into Facebook's page and keeps playing.
+    window puts the Reel back into the site's page and keeps playing.
 
 | Shortcut      | Action                     |
 | ------------- | -------------------------- |
@@ -112,7 +126,8 @@ content-script changes).
 "Skip forward / back 10 seconds" have no default key, because Chrome allows four suggested
 shortcuts; assign them at `chrome://extensions/shortcuts`. On macOS `Alt` is `Option`. Change them at
 `chrome://extensions/shortcuts`. Shortcuts work while
-Chrome is focused (any tab).
+Chrome is focused (any tab). To use them while another app (e.g. your editor) is in front, open
+`chrome://extensions/shortcuts` and set the scope of each shortcut to **Global**.
 
 ## Test
 
@@ -137,17 +152,17 @@ pnpm test:e2e     # real Chrome with the extension loaded; needs Chrome for Test
 
 ## Verification status (21 Nov 2026)
 
-| Check                                                                                                                                                                                                  | Result               |
-| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------- |
-| Unit + integration tests (44)                                                                                                                                                                          | Pass                 |
-| Typecheck (strict), Prettier                                                                                                                                                                           | Pass                 |
-| E2E in Chrome for Testing 153: background playback (tab truly hidden), popup, mini player (open, wheel, drag, auto next while hidden, close, one-click pause, mute carry-over, ±10 s keys) — 27 checks | Pass                 |
-| facebook.com, manual probes in a hidden tab: Facebook pauses on hidden; guard prevents it; "Next Card" + hand-over plays 3 Reels in a row                                                              | Verified             |
-| facebook.com, production modules (live harness), visible tab: auto next with sound, 6 Reels, never navigated wrongly                                                                                   | Verified             |
-| facebook.com, installed extension in Chrome on macOS: background playback and auto next                                                                                                                | Verified by the user |
-| facebook.com, mini player prototype (same move-the-video approach) in Chrome on macOS                                                                                                                  | Verified by the user |
-| facebook.com, mini player in the installed extension                                                                                                                                                   | **Not yet run**      |
-| Windows                                                                                                                                                                                                | **Not yet run**      |
+| Check                                                                                                                                                                                                                                 | Result               |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------- |
+| Unit + integration tests (101)                                                                                                                                                                                                        | Pass                 |
+| Typecheck (strict), Prettier                                                                                                                                                                                                          | Pass                 |
+| E2E in Chrome for Testing 158 (Facebook, YouTube, Instagram): background playback (tab truly hidden), popup, mini player (open, wheel, drag, auto next while hidden, close, one-click pause, mute carry-over, ±10 s keys) — 61 checks | Pass                 |
+| facebook.com, manual probes in a hidden tab: Facebook pauses on hidden; guard prevents it; "Next Card" + hand-over plays 3 Reels in a row                                                                                             | Verified             |
+| facebook.com, production modules (live harness), visible tab: auto next with sound, 6 Reels, never navigated wrongly                                                                                                                  | Verified             |
+| facebook.com, installed extension in Chrome on macOS: background playback and auto next                                                                                                                                               | Verified by the user |
+| facebook.com, mini player prototype (same move-the-video approach) in Chrome on macOS                                                                                                                                                 | Verified by the user |
+| facebook.com, mini player in the installed extension                                                                                                                                                                                  | **Not yet run**      |
+| Windows                                                                                                                                                                                                                               | **Not yet run**      |
 
 Manual checklist (run on macOS and Windows before publishing):
 
@@ -199,7 +214,7 @@ Manual checklist (run on macOS and Windows before publishing):
 ## Privacy
 
 No data leaves the browser. The extension reads only the Reel id from the URL and the state of
-Facebook's video elements on facebook.com, stores two booleans in `chrome.storage.sync`, and uses no
+the video elements on facebook.com, youtube.com and instagram.com, stores two booleans in `chrome.storage.sync`, and uses no
 remote code.
 
 ## Future improvements
@@ -222,5 +237,5 @@ justifications and the privacy policy are in [`docs/chrome-web-store.md`](docs/c
 
 ## Disclaimer
 
-ReelDock is an independent project. It is not affiliated with, endorsed by, or sponsored by Meta Platforms, Inc.
-"Facebook" is a trademark of Meta Platforms, Inc.
+ReelDock is an independent project. It is not affiliated with, endorsed by, or sponsored by Meta Platforms, Inc. or Google LLC.
+"Facebook" and "Instagram" are trademarks of Meta Platforms, Inc.; "YouTube" is a trademark of Google LLC.
