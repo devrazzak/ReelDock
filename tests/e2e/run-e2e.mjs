@@ -372,16 +372,22 @@ async function main() {
         state = await readReels();
         check('Tab stayed hidden for the whole run', alwaysHidden, visibilityChanges.join(', '));
         if (!alwaysHidden) {
-            const events = await control.evaluate('__tabEvents');
-            const tabs = await control.evaluate(
-                `chrome.tabs.query({}).then(all => all.map(t => ({ id: t.id, active: t.active, windowId: t.windowId, url: t.url.slice(0, 50) })))`,
-            );
-            console.log(
-                '  loop started at 0ms; events:',
-                JSON.stringify(events.map(e => ({ ...e, at: e.at - loopStart }))),
-            );
-            console.log('  tabs now:', JSON.stringify(tabs));
+            // Evidence only: it must never hide the failure it explains. Tabs without host access have no url.
+            try {
+                const events = await control.evaluate('__tabEvents');
+                const tabs = await control.evaluate(
+                    `chrome.tabs.query({}).then(all => all.map(t => ({ id: t.id, active: t.active, windowId: t.windowId, url: (t.url ?? '').slice(0, 50) })))`,
+                );
+                console.log(
+                    '  loop started at 0ms; events:',
+                    JSON.stringify(events.map(e => ({ ...e, at: e.at - loopStart }))),
+                );
+                console.log('  tabs now:', JSON.stringify(tabs));
+            } catch (error) {
+                console.log('  could not read tab events:', error.message);
+            }
         }
+
         check(
             'Auto next moved through every Reel while hidden',
             visited.join(',') === '1001,1002,1003,1004',
