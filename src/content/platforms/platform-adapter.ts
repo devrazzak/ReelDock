@@ -20,6 +20,11 @@ export interface PlatformAdapter {
     findReelVideo(doc: Document, reelId: string): HTMLVideoElement | null;
     /** The site's own Next / Previous button, or null when it is missing or disabled. */
     findNavigationButton(doc: Document, direction: Direction): HTMLElement | null;
+    /**
+     * Optional. Moves to another video from inside the page, for sites whose own buttons do nothing while the
+     * tab is in the background. Returns false when the page-side helper is not there.
+     */
+    navigateFromPage?(doc: Document, direction: Direction): boolean;
     /** The site's own Mute button, or null so the caller mutes the <video> directly. */
     findMuteButton(doc: Document, reelId: string): HTMLElement | null;
 }

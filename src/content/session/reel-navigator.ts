@@ -27,6 +27,13 @@ export function createNavigationStrategies(
 ): NavigationStrategy[] {
     return [
         {
+            // A background tab renders nothing, so a site's own button can do nothing there.
+            name: 'page-navigation',
+            trigger(direction) {
+                return doc.hidden && (platform.navigateFromPage?.(doc, direction) ?? false);
+            },
+        },
+        {
             name: 'navigation-button',
             trigger(direction) {
                 const button = platform.findNavigationButton(doc, direction);

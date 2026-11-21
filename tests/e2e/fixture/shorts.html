@@ -60,6 +60,7 @@
             - one mute button whose label flips between "Mute (m)" and "Unmute (m)"; the choice carries over
             - the page pauses on visibilitychange when hidden and resumes when visible
         -->
+        <ytd-app></ytd-app>
         <ytd-watch-flexy>
             <video class="html5-main-video"></video>
             <button aria-label="Unmute (m)" style="display: none"></button>
@@ -95,12 +96,26 @@
                 load(index);
             }
 
+            // Like YouTube, the buttons move on a rendered frame, so they do nothing in a hidden tab.
+            const onFrame = action => requestAnimationFrame(action);
             document
                 .querySelector('ytd-shorts [aria-label="Next video"]')
-                .addEventListener('click', () => goTo(indexOfUrl() + 1));
+                .addEventListener('click', () => onFrame(() => goTo(indexOfUrl() + 1)));
             document
                 .querySelector('ytd-shorts [aria-label="Previous video"]')
-                .addEventListener('click', () => goTo(indexOfUrl() - 1));
+                .addEventListener('click', () => onFrame(() => goTo(indexOfUrl() - 1)));
+
+            // YouTube's internal list of loaded Shorts and its single-page navigation event (no frame needed).
+            Object.defineProperty(document.querySelector('ytd-shorts'), '__data', {
+                get: () => ({
+                    currentPlayerIndex: indexOfUrl(),
+                    shortsProcessedSequence: SHORTS.map(id => ({ command: { reelWatchEndpoint: { videoId: id } } })),
+                }),
+            });
+            document.querySelector('ytd-app').addEventListener('yt-navigate', event => {
+                const videoId = event.detail?.endpoint?.reelWatchEndpoint?.videoId;
+                goTo(SHORTS.indexOf(videoId));
+            });
 
             const muteButton = document.getElementById('mute');
             muteButton.addEventListener('click', () => {
