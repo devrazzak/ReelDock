@@ -31,7 +31,8 @@ let loadingMore = false;
 async function loadMoreShorts(shorts: ShortsElement): Promise<void> {
     const token = findContinuationToken(shorts.__data);
     const config = (window as unknown as { ytcfg?: { get?: (key: string) => unknown } }).ytcfg;
-    if (!token || !config?.get || !shorts.processAppendReelWatchSequenceContinuationEntriesAction || loadingMore) return;
+    if (!token || !config?.get || !shorts.processAppendReelWatchSequenceContinuationEntriesAction || loadingMore)
+        return;
     loadingMore = true;
     try {
         const key = config.get('INNERTUBE_API_KEY');

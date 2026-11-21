@@ -51,8 +51,7 @@ export function countShortsAfter(data: ShortsData | undefined, currentVideoId?: 
 export function findContinuationToken(data: ShortsData | undefined): string | null {
     const token = (
         data?.reelWatchSequenceResponse as
-            | { continuationEndpoint?: { continuationCommand?: { token?: unknown } } }
-            | undefined
+            { continuationEndpoint?: { continuationCommand?: { token?: unknown } } } | undefined
     )?.continuationEndpoint?.continuationCommand?.token;
     return typeof token === 'string' && token !== '' ? token : null;
 }

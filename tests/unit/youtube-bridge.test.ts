@@ -99,6 +99,10 @@ describe('findContinuationToken', () => {
     it('is null when there is no token (end of the feed or a changed page)', () => {
         expect(findContinuationToken(undefined)).toBeNull();
         expect(findContinuationToken({ reelWatchSequenceResponse: {} })).toBeNull();
-        expect(findContinuationToken({ reelWatchSequenceResponse: { continuationEndpoint: { continuationCommand: { token: '' } } } })).toBeNull();
+        expect(
+            findContinuationToken({
+                reelWatchSequenceResponse: { continuationEndpoint: { continuationCommand: { token: '' } } },
+            }),
+        ).toBeNull();
     });
 });
