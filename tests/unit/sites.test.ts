@@ -1,11 +1,29 @@
 import { describe, expect, it } from 'vitest';
 
 import { findPlatformAdapter } from '@/content/platforms';
-import { getReelsTabPatterns, getSiteMatchPatterns, SUPPORTED_SITES, type SupportedSite } from '@/shared/sites';
+import {
+    findSiteByUrl,
+    getReelsTabPatterns,
+    getSiteMatchPatterns,
+    SUPPORTED_SITES,
+    type SupportedSite,
+} from '@/shared/sites';
 
 const TEST_SITES: SupportedSite[] = [
-    { id: 'one', hostnames: ['a.example.com', 'b.example.com'], reelsPath: '/reel/*' },
-    { id: 'two', hostnames: ['c.example.com'], reelsPath: '/shorts/*' },
+    {
+        id: 'one',
+        name: 'One',
+        startUrl: 'https://a.example.com/reel/',
+        hostnames: ['a.example.com', 'b.example.com'],
+        reelsPath: '/reel/*',
+    },
+    {
+        id: 'two',
+        name: 'Two',
+        startUrl: 'https://c.example.com/shorts',
+        hostnames: ['c.example.com'],
+        reelsPath: '/shorts/*',
+    },
 ];
 
 describe('site patterns', () => {
@@ -46,4 +64,16 @@ describe('sites and adapters stay in sync', () => {
             expect(findPlatformAdapter(hostname)?.id).toBe(id);
         },
     );
+});
+
+describe('findSiteByUrl', () => {
+    it('finds the site a page belongs to', () => {
+        expect(findSiteByUrl('https://c.example.com/shorts/abc', TEST_SITES)?.id).toBe('two');
+        expect(findSiteByUrl('https://b.example.com/reel/1', TEST_SITES)?.id).toBe('one');
+    });
+
+    it('returns null for other sites and missing urls', () => {
+        expect(findSiteByUrl('https://other.example.com/', TEST_SITES)).toBeNull();
+        expect(findSiteByUrl(undefined, TEST_SITES)).toBeNull();
+    });
 });

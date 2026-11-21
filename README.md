@@ -112,7 +112,8 @@ content-script changes).
 "Skip forward / back 10 seconds" have no default key, because Chrome allows four suggested
 shortcuts; assign them at `chrome://extensions/shortcuts`. On macOS `Alt` is `Option`. Change them at
 `chrome://extensions/shortcuts`. Shortcuts work while
-Chrome is focused (any tab).
+Chrome is focused (any tab). To use them while another app (e.g. your editor) is in front, open
+`chrome://extensions/shortcuts` and set the scope of each shortcut to **Global**.
 
 ## Test
 

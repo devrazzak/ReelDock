@@ -431,11 +431,11 @@ async function main() {
         await waitFor(
             () =>
                 control.evaluate(
-                    `Boolean(document.querySelector('button[aria-label="Previous Reel"]:not(:disabled)'))`,
+                    `Boolean(document.querySelector('button[aria-label="Previous video"]:not(:disabled)'))`,
                 ),
             enabled => enabled,
         );
-        await control.click('button[aria-label="Previous Reel"]');
+        await control.click('button[aria-label="Previous video"]');
         state = await waitFor(readReels, s => s.id === '1003' && s.paused === false);
         check(
             'Popup "Previous" moves back and plays while the tab is hidden',

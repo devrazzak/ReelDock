@@ -190,11 +190,22 @@ describe('ReelSession keeps a pause from the user', () => {
         expect(page.videos[0]!.paused).toBe(true);
     });
 
-    it('leaves Facebook alone in a visible tab without the mini player', async () => {
+    it('undoes Facebook resuming right after a pause from the popup, also in a visible tab', async () => {
         const { page, session } = setup({ hidden: false });
         await page.videos[0]!.play();
 
         await session.runCommand('toggle-play');
+        await page.videos[0]!.play(); // Facebook syncing the element back to its own "playing" state
+
+        expect(page.videos[0]!.paused).toBe(true);
+    });
+
+    it('leaves Facebook alone when the user presses play in its own UI later', async () => {
+        const { page, session } = setup({ hidden: false });
+        await page.videos[0]!.play();
+
+        await session.runCommand('toggle-play');
+        await settle(600);
         await page.videos[0]!.play(); // the user pressing play in Facebook's own UI
 
         expect(page.videos[0]!.paused).toBe(false);
@@ -271,7 +282,7 @@ describe('ReelSession failures', () => {
         page.videos[0]!.finish();
         await settle(300);
         expect(lastStatus(statuses).lastNavigation?.result).toBe('failed');
-        expect(lastStatus(statuses).warning).toMatch(/Facebook may have changed/);
+        expect(lastStatus(statuses).warning).toMatch(/site may have changed/);
 
         page.brokenNavigation = false;
         page.videos[0]!.finish();
@@ -370,6 +381,6 @@ describe('ReelSession commands', () => {
     it('rejects commands outside the Reels page', async () => {
         const { session } = setup();
         history.replaceState({}, '', '/');
-        await expect(session.runCommand('next-reel')).rejects.toThrow('Open a Facebook Reel first.');
+        await expect(session.runCommand('next-reel')).rejects.toThrow('Open a Reel or Short first.');
     });
 });

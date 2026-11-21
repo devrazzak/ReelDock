@@ -1,5 +1,6 @@
 import { Alert, AlertDescription, AlertTitle, Button, Heading, Separator, Spinner, Text } from '@rax-ds/ui';
 
+import { SUPPORTED_SITES } from '@/shared/sites';
 import type { PlaybackStatus } from '@/shared/status';
 
 import { NowPlaying } from './components/NowPlaying';
@@ -7,19 +8,18 @@ import { SettingRow } from './components/SettingRow';
 import { useReelsTab, type ReelsTabState } from './hooks/useReelsTab';
 import { useSettings } from './hooks/useSettings';
 
-const REELS_URL = 'https://www.facebook.com/reel/';
 const VERSION = chrome.runtime.getManifest().version;
 
 function subtitleFor(state: ReelsTabState): string {
     switch (state.kind) {
         case 'loading':
-            return 'Looking for Facebook…';
+            return 'Looking for a Reel or Short…';
         case 'no-tab':
-            return 'Facebook Reels is not open';
+            return 'No Reel or Short is open';
         case 'disconnected':
-            return 'Facebook tab needs a reload';
+            return 'Tab needs a reload';
         case 'connected':
-            return 'Connected to Facebook Reels';
+            return state.siteName ? `Connected · ${state.siteName}` : 'Connected';
     }
 }
 
@@ -27,7 +27,7 @@ function TabMessage({ state }: { state: ReelsTabState }) {
     if (state.kind === 'loading') {
         return (
             <div className="flex justify-center py-6">
-                <Spinner size="md" aria-label="Looking for the Facebook tab" />
+                <Spinner size="md" aria-label="Looking for a Reel or Short tab" />
             </div>
         );
     }
@@ -35,12 +35,20 @@ function TabMessage({ state }: { state: ReelsTabState }) {
     if (state.kind === 'no-tab') {
         return (
             <Alert variant="info-subtle">
-                <AlertTitle>Open a Reel to start</AlertTitle>
+                <AlertTitle>Open a Reel or Short to start</AlertTitle>
                 <AlertDescription>
-                    <p>Click the Reel once (and Unmute), then switch to any tab.</p>
-                    <Button size="sm" className="mt-2" onClick={() => void chrome.tabs.create({ url: REELS_URL })}>
-                        Open Reels
-                    </Button>
+                    <p>Click the video once (and Unmute), then switch to any tab.</p>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                        {SUPPORTED_SITES.map(site => (
+                            <Button
+                                key={site.id}
+                                size="sm"
+                                onClick={() => void chrome.tabs.create({ url: site.startUrl })}
+                            >
+                                {site.name}
+                            </Button>
+                        ))}
+                    </div>
                 </AlertDescription>
             </Alert>
         );
@@ -49,7 +57,7 @@ function TabMessage({ state }: { state: ReelsTabState }) {
     if (state.kind === 'disconnected') {
         return (
             <Alert variant="warning-subtle">
-                <AlertTitle>Reload the Facebook tab</AlertTitle>
+                <AlertTitle>Reload the tab</AlertTitle>
                 <AlertDescription>
                     <p>It was open before the extension started, so it cannot be controlled yet.</p>
                     <Button size="sm" className="mt-2" onClick={() => void chrome.tabs.reload(state.tabId)}>
@@ -65,8 +73,8 @@ function TabMessage({ state }: { state: ReelsTabState }) {
 
 /** One short hint at a time, only when it helps right now. */
 function hintFor(status: PlaybackStatus): string | null {
-    if (status.muted && status.videoState === 'playing') return 'Sound is off. Click Unmute on the Reel once.';
-    if (!status.miniPlayerOpen) return 'Tip: click ⧉ under the arrows on the Reel for a floating player.';
+    if (status.muted && status.videoState === 'playing') return 'Sound is off. Click Unmute on the video once.';
+    if (!status.miniPlayerOpen) return 'Tip: click ⧉ under the arrows on the video for a floating player.';
     return null;
 }
 
@@ -125,7 +133,7 @@ export function App() {
                 />
                 <SettingRow
                     label="Auto next"
-                    description="Play the next Reel when one ends."
+                    description="Play the next video when one ends."
                     checked={settings?.autoNext ?? false}
                     disabled={!settings}
                     onCheckedChange={autoNext => update({ autoNext })}

@@ -6,6 +6,10 @@
 export interface SupportedSite {
     /** Same id as the site's PlatformAdapter. */
     id: string;
+    /** Shown in the popup. */
+    name: string;
+    /** Where the popup's "open" button goes. */
+    startUrl: string;
     hostnames: readonly string[];
     /** Match-pattern path of the short-video page, e.g. "/reel/*". */
     reelsPath: string;
@@ -13,17 +17,31 @@ export interface SupportedSite {
 
 export const FACEBOOK_SITE: SupportedSite = {
     id: 'facebook',
+    name: 'Facebook Reels',
+    startUrl: 'https://www.facebook.com/reel/',
     hostnames: ['www.facebook.com', 'web.facebook.com'],
     reelsPath: '/reel/*',
 };
 
 export const YOUTUBE_SITE: SupportedSite = {
     id: 'youtube',
+    name: 'YouTube Shorts',
+    startUrl: 'https://www.youtube.com/shorts',
     hostnames: ['www.youtube.com'],
     reelsPath: '/shorts/*',
 };
 
 export const SUPPORTED_SITES: readonly SupportedSite[] = [FACEBOOK_SITE, YOUTUBE_SITE];
+
+/** The supported site a page URL belongs to, or null. */
+export function findSiteByUrl(
+    url: string | undefined,
+    sites: readonly SupportedSite[] = SUPPORTED_SITES,
+): SupportedSite | null {
+    if (!url) return null;
+    const { hostname } = new URL(url);
+    return sites.find(site => site.hostnames.includes(hostname)) ?? null;
+}
 
 /** Every page of every supported site. Used for the manifest's host permissions and content scripts. */
 export function getSiteMatchPatterns(sites: readonly SupportedSite[] = SUPPORTED_SITES): string[] {

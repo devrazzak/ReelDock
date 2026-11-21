@@ -8,6 +8,7 @@ import {
     type StatusPortMessage,
 } from '@/shared/messages';
 import { findReelsTab } from '@/shared/reels-tab';
+import { findSiteByUrl } from '@/shared/sites';
 import type { PlaybackStatus } from '@/shared/status';
 
 export type ReelsTabState =
@@ -15,7 +16,7 @@ export type ReelsTabState =
     | { kind: 'no-tab' }
     /** The tab exists but has no content script, e.g. it was open before the extension was installed. */
     | { kind: 'disconnected'; tabId: number }
-    | { kind: 'connected'; tabId: number; status: PlaybackStatus };
+    | { kind: 'connected'; tabId: number; siteName: string | null; status: PlaybackStatus };
 
 /** Finds the Facebook Reels tab and streams its playback status over a port while the popup is open. */
 export function useReelsTab() {
@@ -30,10 +31,12 @@ export function useReelsTab() {
             if (cancelled) return;
             const tabId = tab?.id;
             if (tabId === undefined) return setState({ kind: 'no-tab' });
+            const siteName = findSiteByUrl(tab?.url)?.name ?? null;
 
             port = chrome.tabs.connect(tabId, { name: STATUS_PORT_NAME });
             port.onMessage.addListener((message: StatusPortMessage) => {
-                if (message.type === 'status') setState({ kind: 'connected', tabId, status: message.status });
+                if (message.type !== 'status') return;
+                setState({ kind: 'connected', tabId, siteName, status: message.status });
             });
             port.onDisconnect.addListener(() => {
                 // Reading lastError marks it as handled. It is set when the tab has no content script
@@ -58,7 +61,7 @@ export function useReelsTab() {
                 const response = (await chrome.tabs.sendMessage(state.tabId, request)) as ContentResponse;
                 if (!response.ok) setCommandError(response.error);
             } catch {
-                setCommandError('The Facebook tab did not respond. Reload it and try again.');
+                setCommandError('The tab did not respond. Reload it and try again.');
             }
         },
         [state],

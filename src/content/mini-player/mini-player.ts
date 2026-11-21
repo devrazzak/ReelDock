@@ -228,11 +228,11 @@ export class MiniPlayer implements VideoStage {
         doc.body.replaceChildren(
             div('player paused', [
                 div('stage'),
-                div('spinner', [], { role: 'status', 'aria-label': 'Loading next Reel' }),
+                div('spinner', [], { role: 'status', 'aria-label': 'Loading next video' }),
                 div('paused-icon', [createSvg(doc, ICONS.play)]),
                 div('controls side', [
-                    button('previous', 'Previous Reel', ICONS.previous),
-                    button('next', 'Next Reel', ICONS.next),
+                    button('previous', 'Previous video', ICONS.previous),
+                    button('next', 'Next video', ICONS.next),
                     button('mute', 'Mute', ICONS.sound),
                 ]),
                 div('controls bottom', [

@@ -36,6 +36,9 @@ export interface VideoStage {
     release(direction?: Direction): void;
 }
 
+/** A resume this soon after our pause comes from the site syncing its own state, not from the user. */
+const RESUME_UNDO_WINDOW_MS = 500;
+
 /** Facebook's own player skips 10 seconds forward or backward. */
 export const SEEK_SECONDS = 10;
 
@@ -65,6 +68,7 @@ export class ReelSession {
     private pausedByUser: HTMLVideoElement | null = null;
     /** How often a resume was undone for pausedByUser; caps any tug of war with Facebook. */
     private undoneResumes = 0;
+    private pausedAt = 0;
     private lastNavigation: NavigationRecord | null = null;
     private lastStatusJson = '';
     private disposed = false;
@@ -138,17 +142,18 @@ export class ReelSession {
     }
 
     async runCommand(command: PlayerCommand): Promise<void> {
-        if (!this.onReelsPage()) throw new Error('Open a Facebook Reel first.');
+        if (!this.onReelsPage()) throw new Error('Open a Reel or Short first.');
         switch (command) {
             case 'toggle-play': {
                 const video = this.getCurrentVideo();
-                if (!video) throw new Error('No Reel video found on the page.');
+                if (!video) throw new Error('No video found on the page.');
                 if (video.paused) {
                     this.pausedByUser = null;
                     await this.play(video);
                 } else {
                     this.pausedByUser = video;
                     this.undoneResumes = 0;
+                    this.pausedAt = Date.now();
                     video.pause();
                 }
                 break;
@@ -246,12 +251,14 @@ export class ReelSession {
 
     /**
      * Facebook keeps its own "playing" state for a Reel it started and may resume the video after we
-     * pause it from outside its UI (the mini player, popup or shortcut). Undo such a resume, but only
-     * while we manage playback; in a visible tab without the mini player the user has Facebook's own
-     * controls, which must keep working.
+     * pause it from outside its UI (the mini player, popup or shortcut). Undo such a resume while we manage
+     * playback, and in any tab when it comes right after our pause (Facebook syncing its state, seen within
+     * ~100 ms). A later resume in a visible tab is the user using Facebook's own controls, which must keep working.
      */
     private keepUserPause(video: HTMLVideoElement): boolean {
-        if (video !== this.pausedByUser || !this.isManagingPlayback() || this.undoneResumes >= 3) return false;
+        if (video !== this.pausedByUser || this.undoneResumes >= 3) return false;
+        const resumedRightAway = Date.now() - this.pausedAt < RESUME_UNDO_WINDOW_MS;
+        if (!resumedRightAway && !this.isManagingPlayback()) return false;
         this.undoneResumes++;
         video.pause();
         return true;
@@ -291,7 +298,7 @@ export class ReelSession {
         // Facebook's page must have its video element back before it switches cards.
         stage?.release(direction);
         let usedStrategy: string | null = null;
-        let failure = 'No navigation method moved to another Reel. Facebook may have changed its page.';
+        let failure = 'No navigation method moved to the next video. The site may have changed its page.';
 
         try {
             for (const strategy of this.options.strategies) {
@@ -303,7 +310,7 @@ export class ReelSession {
                 }
             }
             if (usedStrategy && !(await this.handOverPlayback(fromVideo))) {
-                failure = 'Moved to the next Reel, but its video did not start.';
+                failure = 'Moved to the next video, but it did not start.';
                 usedStrategy = null;
             }
             // Nothing moved: show the same Reel in the mini player again.
@@ -375,7 +382,7 @@ export class ReelSession {
             this.lastNavigation = {
                 at: Date.now(),
                 result: 'failed',
-                detail: 'Moved to the next Reel, but its video did not start.',
+                detail: 'Moved to the next video, but it did not start.',
             };
             this.publishStatus();
         }
@@ -418,9 +425,9 @@ export class ReelSession {
     }
 
     private getWarning(video: HTMLVideoElement | null): string | null {
-        if (!video) return 'No Reel video found. Facebook may still be loading, or its page has changed.';
+        if (!video) return 'No video found. The page may still be loading, or the site has changed it.';
         if (this.getVideoState(video) === 'blocked') {
-            return 'Chrome blocked playback. Click the Reel once in the Facebook tab, then try again.';
+            return 'Chrome blocked playback. Click the video once in this tab, then try again.';
         }
         if (this.lastNavigation?.result === 'failed') return this.lastNavigation.detail;
         return null;
