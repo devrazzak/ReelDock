@@ -72,9 +72,9 @@ apps: background playback, automatic next video, and a floating mini player.
 
 **Permission justification:**
 
-| Permission                                   | Justification                                                                                                                                              |
-| -------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `storage`                                    | Saves the user's two settings (background playback, auto next) and syncs them across their Chrome profile.                                                 |
+| Permission                                                                           | Justification                                                                                                                                                                             |
+| ------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `storage`                                                                            | Saves the user's two settings (background playback, auto next) and syncs them across their Chrome profile.                                                                                |
 | Host: `www.facebook.com`, `web.facebook.com`, `www.youtube.com`, `www.instagram.com` | The content script must run on these sites to detect when a Reel or Short ends, move to the next one with the site's own navigation, and show the mini player. No other site is accessed. |
 
 **Remote code:** No. All code is bundled in the package.
