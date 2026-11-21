@@ -10,6 +10,8 @@ export interface SupportedSite {
     name: string;
     /** Where the popup's "open" button goes. */
     startUrl: string;
+    /** The site's main colour as 6-digit hex; the popup tints its button with it. */
+    color: string;
     hostnames: readonly string[];
     /** Match-pattern path of the short-video page, e.g. "/reel/*". */
     reelsPath: string;
@@ -19,6 +21,7 @@ export const FACEBOOK_SITE: SupportedSite = {
     id: 'facebook',
     name: 'Facebook Reels',
     startUrl: 'https://www.facebook.com/reel/',
+    color: '#0866FF',
     hostnames: ['www.facebook.com', 'web.facebook.com'],
     reelsPath: '/reel/*',
 };
@@ -27,6 +30,7 @@ export const YOUTUBE_SITE: SupportedSite = {
     id: 'youtube',
     name: 'YouTube Shorts',
     startUrl: 'https://www.youtube.com/shorts',
+    color: '#FF0000',
     hostnames: ['www.youtube.com'],
     reelsPath: '/shorts/*',
 };
