@@ -39,3 +39,17 @@ describe('LaunchButton placement', () => {
         button.setVisible(false);
     });
 });
+
+describe('launch button themes', () => {
+    it('gives unknown sites the default look', async () => {
+        const { DEFAULT_THEME, getLaunchButtonTheme } = await import('@/content/mini-player/launch-button-theme');
+        expect(getLaunchButtonTheme('some-new-site')).toEqual(DEFAULT_THEME);
+    });
+
+    it('lets a site override only what it lists', async () => {
+        const { DEFAULT_THEME, getLaunchButtonTheme } = await import('@/content/mini-player/launch-button-theme');
+        const facebook = getLaunchButtonTheme('facebook');
+        expect(facebook.background).not.toBe(DEFAULT_THEME.background);
+        expect(facebook.size).toBe(DEFAULT_THEME.size);
+    });
+});

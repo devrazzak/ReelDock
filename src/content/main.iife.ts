@@ -1,4 +1,5 @@
 import { LaunchButton } from '@/content/mini-player/launch-button';
+import { getLaunchButtonTheme } from '@/content/mini-player/launch-button-theme';
 import { MiniPlayer } from '@/content/mini-player/mini-player';
 import { findPlatformAdapter } from '@/content/platforms';
 import type { PlatformAdapter } from '@/content/platforms/platform-adapter';
@@ -117,6 +118,7 @@ function createMiniPlayer(session: ReelSession, platform: PlatformAdapter): Laun
             if (miniPlayer.isOpen) miniPlayer.close();
             else void miniPlayer.open(session.getCurrentVideo()).catch(() => undefined);
         },
+        getLaunchButtonTheme(platform.id),
     );
     return button;
 }

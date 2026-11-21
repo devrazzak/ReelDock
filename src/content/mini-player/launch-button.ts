@@ -9,24 +9,19 @@
  * Rendered in a closed shadow root so the page's CSS and ours cannot affect each other.
  */
 import { createElement, createSvg, type IconShape } from '../dom/build';
+import { DEFAULT_THEME, type LaunchButtonTheme } from './launch-button-theme';
 
-const SIZE = 48;
-const GAP_BELOW_ANCHOR = 16;
-const FALLBACK_MARGIN = 24;
-
-// Same size as Facebook's own up/down Reel buttons (48 px circle, full opacity on hover). The dark fill keeps
-// the white icon readable on both dark pages (Facebook) and light ones (YouTube's light theme).
-const BUTTON_CSS = `
+const buildCss = ({ size, background, color, restingOpacity }: LaunchButtonTheme) => `
 :host { all: initial; position: fixed; z-index: 2147483647; }
 button {
-    width: ${SIZE}px; height: ${SIZE}px; border-radius: 50%; padding: 0; border: 0; cursor: pointer;
-    display: block; background: rgb(0 0 0 / 0.55); color: #fff; opacity: 0.75;
+    width: ${size}px; height: ${size}px; border-radius: 50%; padding: 0; border: 0; cursor: pointer;
+    display: block; background: ${background}; color: ${color}; opacity: ${restingOpacity};
     transition: opacity 0.1s linear, transform 0.3s;
 }
 button:hover, button:focus-visible, button[aria-pressed='true'] { opacity: 1; }
 button:active { transform: scale(0.96); }
-button:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
-svg { width: ${SIZE}px; height: ${SIZE}px; display: block; }
+button:focus-visible { outline: 2px solid ${color}; outline-offset: 2px; }
+svg { width: ${size}px; height: ${size}px; display: block; }
 `;
 
 // Ring like Facebook's icons, with a picture-in-picture glyph in the middle.
@@ -47,11 +42,12 @@ export class LaunchButton {
         doc: Document,
         private readonly getAnchor: () => HTMLElement | null,
         onClick: () => void,
+        private readonly theme: LaunchButtonTheme = DEFAULT_THEME,
     ) {
         this.host = doc.createElement('reeldock-launcher');
         const shadow = this.host.attachShadow({ mode: 'closed' });
         const style = createElement(doc, 'style');
-        style.textContent = BUTTON_CSS;
+        style.textContent = buildCss(theme);
         this.button = createElement(doc, 'button', { type: 'button' }, [createSvg(doc, ICON)]);
         shadow.append(style, this.button);
         this.button.addEventListener('click', onClick);
@@ -78,13 +74,13 @@ export class LaunchButton {
         const rect = this.getAnchor()?.getBoundingClientRect();
         const { style } = this.host;
         if (rect && rect.width > 0) {
-            style.left = `${Math.round(rect.left + rect.width / 2 - SIZE / 2)}px`;
-            style.top = `${Math.round(rect.bottom + GAP_BELOW_ANCHOR)}px`;
+            style.left = `${Math.round(rect.left + rect.width / 2 - this.theme.size / 2)}px`;
+            style.top = `${Math.round(rect.bottom + this.theme.gapBelowAnchor)}px`;
             style.bottom = '';
         } else {
-            style.left = `${FALLBACK_MARGIN}px`;
+            style.left = `${this.theme.fallbackMargin}px`;
             style.top = '';
-            style.bottom = `${FALLBACK_MARGIN}px`;
+            style.bottom = `${this.theme.fallbackMargin}px`;
         }
     }
 }
