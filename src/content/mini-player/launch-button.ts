@@ -8,6 +8,8 @@
  * found, it falls back to the bottom-left corner, which Facebook leaves empty.
  * Rendered in a closed shadow root so the page's CSS and ours cannot affect each other.
  */
+import { createElement, createSvg, type IconShape } from '../dom/build';
+
 const SIZE = 48;
 const GAP_BELOW_ANCHOR = 16;
 const FALLBACK_MARGIN = 24;
@@ -28,11 +30,11 @@ svg { width: ${SIZE}px; height: ${SIZE}px; display: block; }
 `;
 
 // Ring like Facebook's icons, with a picture-in-picture glyph in the middle.
-const ICON = `<svg viewBox="0 0 24 24" aria-hidden="true">
-    <circle cx="12" cy="12" r="10.5" fill="none" stroke="currentColor" stroke-width="2" />
-    <rect x="7" y="8.25" width="10" height="7.5" rx="1.25" fill="none" stroke="currentColor" stroke-width="1.5" />
-    <rect x="11.5" y="11.75" width="4" height="2.75" rx="0.5" fill="currentColor" />
-</svg>`;
+const ICON: IconShape[] = [
+    { tag: 'circle', attrs: { cx: '12', cy: '12', r: '10.5', fill: 'none', stroke: 'currentColor', 'stroke-width': '2' } },
+    { tag: 'rect', attrs: { x: '7', y: '8.25', width: '10', height: '7.5', rx: '1.25', fill: 'none', stroke: 'currentColor', 'stroke-width': '1.5' } },
+    { tag: 'rect', attrs: { x: '11.5', y: '11.75', width: '4', height: '2.75', rx: '0.5', fill: 'currentColor' } },
+];
 
 export class LaunchButton {
     private readonly host: HTMLElement;
@@ -48,10 +50,10 @@ export class LaunchButton {
     ) {
         this.host = doc.createElement('reeldock-launcher');
         const shadow = this.host.attachShadow({ mode: 'closed' });
-        shadow.innerHTML = `<style>${BUTTON_CSS}</style><button type="button">${ICON}</button>`;
-        const button = shadow.querySelector('button');
-        if (!button) throw new Error('Launch button markup is missing');
-        this.button = button;
+        const style = createElement(doc, 'style');
+        style.textContent = BUTTON_CSS;
+        this.button = createElement(doc, 'button', { type: 'button' }, [createSvg(doc, ICON)]);
+        shadow.append(style, this.button);
         this.button.addEventListener('click', onClick);
         doc.defaultView?.addEventListener('resize', () => this.place());
         this.setOpen(false);
