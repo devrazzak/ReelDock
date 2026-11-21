@@ -56,12 +56,13 @@ This extension is not affiliated with, endorsed by, or sponsored by Meta Platfor
 | `screenshot-2.png`          | Screenshot 2 (1280×800)                                  |
 | `screenshot-3.png`          | Screenshot 3 (1280×800)                                  |
 | `screenshot-4.png`          | Screenshot 4 (1280×800): where the mini player button is |
+| `screenshot-5.png`          | Screenshot 5 (1280×800): works on Facebook, YouTube, Instagram |
 | `promo-tile-440x280.png`    | Small promo tile (440×280)                               |
 | `public/icons/icon-128.png` | Store icon (128×128)                                     |
 
-They show our own demo videos (`store-assets/demo`), never real Facebook, YouTube or Instagram content. They still show Facebook only; add YouTube / Instagram screenshots if you want them in the listing. To regenerate after a UI
+They show our own demo videos (`store-assets/demo`), never real Facebook, YouTube or Instagram content. Screenshot 5 uses the real pages from our browser (`store-assets/real/`) with the video replaced by our demo Reel and personal details removed; the logos are the unmodified official SVGs (`public/site-icons`, `store-assets/logos`). To regenerate after a UI
 change: `CHROME_PATH=<Chrome for Testing> pnpm store:screenshots`, then render each image from
-`store-assets/compose.html?shot=1|2|3|4|tile` at its size, e.g.
+`store-assets/compose.html?shot=1|2|3|4|5|tile` at its size, e.g.
 `google-chrome --headless=new --window-size=1280,800 --screenshot=store-assets/final/screenshot-1.png "file://$PWD/store-assets/compose.html?shot=1"`.
 
 ## Privacy practices tab

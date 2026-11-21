@@ -1,7 +1,7 @@
 <!doctype html>
 <!--
     Store listing images, composed from the raw captures in ./raw (made by scripts/store-screenshots.mjs).
-    Open with ?shot=1|2|3|tile and screenshot at 1280×800 (tile: 440×280).
+    Open with ?shot=1|2|3|4|5|tile and screenshot at 1280×800 (tile: 440×280).
 -->
 <html lang="en">
     <head>
@@ -202,6 +202,44 @@
                     <div style="position:absolute;left:${cx - ring / 2}px;top:${cy - ring / 2}px;width:${ring}px;height:${ring}px;border:4px solid #fff;border-radius:50%;box-shadow:0 0 0 8px rgb(255 255 255 / 0.25)"></div>
                     <div class="label" style="left:${cx - ring / 2 - 300}px;top:${cy - 20}px;font-size:17px;background:#fff;color:#7d0209;font-weight:600">Click here to open the mini player →</div>
                     ${brand}`;
+                })(),
+                5: (() => {
+                    // Real pages from the user's browser, with our demo Reel in place of the video and personal
+                    // details removed (store-assets/real). The logos are the official SVGs, unmodified.
+                    const sites = [
+                        { name: 'Facebook Reels', image: 'real/facebook.png', icon: 'logos/facebook-white.svg' },
+                        { name: 'YouTube Shorts', image: 'real/youtube.png', icon: '../public/site-icons/youtube.svg' },
+                        { name: 'Instagram Reels', image: 'real/instagram.png', icon: '../public/site-icons/instagram.svg' },
+                    ];
+                    // A 2×2 grid: the text in the first cell, one whole page in each of the others.
+                    const width = 560;
+                    const height = Math.round((width * 2014) / 3600);
+                    const cells = [
+                        { left: 660, top: 40 },
+                        { left: 60, top: 420 },
+                        { left: 660, top: 420 },
+                    ];
+                    const windows = sites
+                        .map(
+                            ({ name, image, icon }, index) => `
+                    <div class="work" style="left:${cells[index].left}px;top:${cells[index].top}px;width:${width}px">
+                        <div class="bar" style="gap:10px;font-size:14px;color:#fff">
+                            <img src="${icon}" alt="" style="width:18px;height:18px" />${name}
+                        </div>
+                        <img src="${image}" alt="" style="display:block;width:${width}px;height:${height}px" />
+                    </div>`,
+                        )
+                        .join('');
+                    return `
+                    <div style="position:absolute;left:60px;top:70px;width:540px">
+                        <div class="eyebrow">Three sites, one extension</div>
+                        <h1>Works on Facebook, YouTube and Instagram</h1>
+                        <p>The same background playback, auto next and mini player on every Reels and Shorts page.</p>
+                    </div>
+                    ${windows}
+                    <div class="brand" style="left:60px;bottom:auto;top:330px">
+                        <img src="raw/icon-128.png" alt="" />ReelDock
+                    </div>`;
                 })(),
                 tile: `
                     <img src="raw/icon-128.png" alt="" />
