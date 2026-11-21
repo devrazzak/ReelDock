@@ -210,7 +210,11 @@
                     const sites = [
                         { name: 'Facebook Reels', image: 'real/facebook.png', icon: 'logos/facebook-white.svg' },
                         { name: 'YouTube Shorts', image: 'real/youtube.png', icon: '../public/site-icons/youtube.svg' },
-                        { name: 'Instagram Reels', image: 'real/instagram.png', icon: '../public/site-icons/instagram.svg' },
+                        {
+                            name: 'Instagram Reels',
+                            image: 'real/instagram.png',
+                            icon: '../public/site-icons/instagram.svg',
+                        },
                     ];
                     // A 2×2 grid: the text in the first cell, one whole page in each of the others.
                     const width = 560;
@@ -246,9 +250,33 @@
                 // on the 3600×2014 page images.
                 ...Object.fromEntries(
                     [
-                        ['6', 'Facebook Reels', 'facebook', 'logos/facebook-white.svg', 'Keeps playing in the background', 3527, 1253],
-                        ['7', 'YouTube Shorts', 'youtube', '../public/site-icons/youtube.svg', 'Next Short starts by itself', 3494, 1293],
-                        ['8', 'Instagram Reels', 'instagram', '../public/site-icons/instagram.svg', 'One click opens the mini player', 3477, 1185],
+                        [
+                            '6',
+                            'Facebook Reels',
+                            'facebook',
+                            'logos/facebook-white.svg',
+                            'Keeps playing in the background',
+                            3527,
+                            1253,
+                        ],
+                        [
+                            '7',
+                            'YouTube Shorts',
+                            'youtube',
+                            '../public/site-icons/youtube.svg',
+                            'Next Short starts by itself',
+                            3494,
+                            1293,
+                        ],
+                        [
+                            '8',
+                            'Instagram Reels',
+                            'instagram',
+                            '../public/site-icons/instagram.svg',
+                            'One click opens the mini player',
+                            3477,
+                            1185,
+                        ],
                     ].map(([key, name, image, icon, title, bx, by]) => {
                         const box = { left: 120, top: 160, width: 1040 };
                         const scale = box.width / 3600;

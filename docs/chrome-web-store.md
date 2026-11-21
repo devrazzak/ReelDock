@@ -50,15 +50,15 @@ This extension is not affiliated with, endorsed by, or sponsored by Meta Platfor
 
 **Images (ready in `store-assets/final/`):**
 
-| Store field (upload in this order) | File                                                          |
-| ---------------------------------- | ------------------------------------------------------------- |
-| Screenshot 1                       | `screenshot-5.png`: works on Facebook, YouTube, Instagram     |
-| Screenshot 2                       | `screenshot-6.png`: real Facebook page, mini player button    |
-| Screenshot 3                       | `screenshot-7.png`: real YouTube Shorts page                  |
-| Screenshot 4                       | `screenshot-8.png`: real Instagram Reels page                 |
-| Screenshot 5                       | `screenshot-2.png`: the mini player                           |
-| Small promo tile (440×280)         | `promo-tile-440x280.png`                                      |
-| Store icon (128×128)               | `public/icons/icon-128.png`                                   |
+| Store field (upload in this order) | File                                                       |
+| ---------------------------------- | ---------------------------------------------------------- |
+| Screenshot 1                       | `screenshot-5.png`: works on Facebook, YouTube, Instagram  |
+| Screenshot 2                       | `screenshot-6.png`: real Facebook page, mini player button |
+| Screenshot 3                       | `screenshot-7.png`: real YouTube Shorts page               |
+| Screenshot 4                       | `screenshot-8.png`: real Instagram Reels page              |
+| Screenshot 5                       | `screenshot-2.png`: the mini player                        |
+| Small promo tile (440×280)         | `promo-tile-440x280.png`                                   |
+| Store icon (128×128)               | `public/icons/icon-128.png`                                |
 
 The Store takes at most 5 screenshots. `screenshot-1.png` (background playback), `screenshot-3.png` (popup) and
 `screenshot-4.png` (where the button is) are kept for later use; screenshots 6–8 cover the button on every site.
