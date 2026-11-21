@@ -3,6 +3,14 @@
     "version": "1.0.0",
     "private": true,
     "description": "Chrome extension that keeps Facebook Reels playing in a background tab and moves to the next Reel automatically.",
+    "license": "MIT",
+    "author": "Abdur Razzak (https://github.com/devrazzak)",
+    "homepage": "https://github.com/devrazzak/reeldock#readme",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/devrazzak/reeldock.git"
+    },
+    "bugs": "https://github.com/devrazzak/reeldock/issues",
     "type": "module",
     "scripts": {
         "dev": "vite",

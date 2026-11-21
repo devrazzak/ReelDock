@@ -215,3 +215,12 @@ remote code.
 `pnpm package` builds `release/reeldock-<version>.zip`. Store listing text, permission
 justifications and the privacy policy are in [`docs/chrome-web-store.md`](docs/chrome-web-store.md) and
 [`docs/privacy-policy.md`](docs/privacy-policy.md).
+
+## License
+
+[MIT](LICENSE) © Abdur Razzak
+
+## Disclaimer
+
+ReelDock is an independent project. It is not affiliated with, endorsed by, or sponsored by Meta Platforms, Inc.
+"Facebook" is a trademark of Meta Platforms, Inc.

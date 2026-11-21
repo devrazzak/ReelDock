@@ -41,6 +41,7 @@ How to start: open a Reel on facebook.com and click it once (and Unmute for soun
 sound after you interact with a page, so this first click is required.
 
 Privacy: no data leaves your browser. No accounts, no analytics, no tracking.
+Open source: every line of code is on GitHub at https://github.com/devrazzak/reeldock
 The extension only runs on facebook.com and stores your two on/off settings.
 
 This extension is not affiliated with, endorsed by, or sponsored by Meta Platforms, Inc.
@@ -81,8 +82,10 @@ next Reel, and a floating mini player.
 **Data usage:** Collects none of the listed data types. Tick the three certifications (no selling, no
 unrelated use, no creditworthiness use).
 
-**Privacy policy URL:** not required when no user data is collected, but recommended. Publish
-`docs/privacy-policy.md` (e.g. as a GitHub Pages page or a public Gist) and paste its URL.
+**Privacy policy URL:** https://github.com/devrazzak/reeldock/blob/main/docs/privacy-policy.md
+(public repository; GitHub renders the Markdown).
+
+**Support / homepage URL:** https://github.com/devrazzak/reeldock
 
 ## Review notes (optional field)
 

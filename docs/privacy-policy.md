@@ -19,4 +19,7 @@ id from the address bar and the state of Facebook's video player, entirely insid
 
 **Third parties:** none. No analytics or advertising services are used.
 
-**Contact:** open an issue in the project's repository.
+**Source code:** the extension is open source, so anyone can check what it does:
+https://github.com/devrazzak/reeldock
+
+**Contact:** open an issue at https://github.com/devrazzak/reeldock/issues
