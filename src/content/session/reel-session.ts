@@ -359,7 +359,12 @@ export class ReelSession {
      */
     private async handOverPlayback(previous: HTMLVideoElement | null): Promise<boolean> {
         const reelId = this.getCurrentReelId();
-        const next = await this.waitForValue(() => (reelId ? this.platform.findReelVideo(this.doc, reelId) : null));
+        // The URL can change before the site has moved on from the old video (Instagram scrolls first and pauses
+        // the old video a moment later), so the old video is not the new Reel's video yet.
+        const next = await this.waitForValue(() => {
+            const video = reelId ? this.platform.findReelVideo(this.doc, reelId) : null;
+            return video !== previous ? video : null;
+        });
         if (!next || this.disposed) return false;
         const stage = this.stage?.isOpen ? this.stage : null;
 

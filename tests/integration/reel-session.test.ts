@@ -434,6 +434,46 @@ describe('ReelSession with a navigation that keeps the URL', () => {
     });
 });
 
+describe('ReelSession when the URL changes before the site leaves the old video', () => {
+    it('waits for the new video instead of taking the old one again', async () => {
+        const page = createFakeReelsPage(document, REELS);
+        const [first, second] = page.videos;
+        let siteMovedOn = false;
+        const platform = { ...facebookAdapter, findReelVideo: () => (siteMovedOn ? second! : first!) };
+        const stage = new FakeStage();
+        const session = new ReelSession({
+            doc: document,
+            platform,
+            strategies: [
+                {
+                    name: 'slow-site',
+                    trigger: () => {
+                        history.replaceState({}, '', '/reel/222');
+                        setTimeout(() => (siteMovedOn = true), 100);
+                        return true;
+                    },
+                },
+            ],
+            getSettings: () => DEFAULT_SETTINGS,
+            onStatus: () => undefined,
+            isTabHidden: () => false,
+            navigationTimeoutMs: 400,
+            playVerifyMs: 20,
+        });
+        session.start();
+        session.attachStage(stage);
+        current = { page, session, settings: DEFAULT_SETTINGS, statuses: [] };
+        stage.present(first!);
+        await first!.play();
+
+        await session.runCommand('next-reel');
+
+        expect(stage.video).toBe(second);
+        expect(second!.paused).toBe(false);
+        expect(first!.paused).toBe(true);
+    });
+});
+
 describe('ReelSession commands', () => {
     it('toggles play and pause on the current Reel', async () => {
         const { page, session } = setup();
