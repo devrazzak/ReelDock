@@ -3,6 +3,8 @@ import type { Direction, PlatformAdapter } from '@/content/platforms/platform-ad
 /** One way of asking the site to move to another Reel. Returns false when it could not be attempted. */
 export interface NavigationStrategy {
     name: string;
+    /** The URL does not change when this strategy works; a different current video is the sign of success. */
+    keepsUrl?: boolean;
     trigger(direction: Direction): boolean;
 }
 
@@ -29,6 +31,7 @@ export function createNavigationStrategies(
         {
             // A background tab renders nothing, so a site's own button can do nothing there.
             name: 'page-navigation',
+            keepsUrl: platform.pageNavigationKeepsUrl === true,
             trigger(direction) {
                 return doc.hidden && (platform.navigateFromPage?.(doc, direction) ?? false);
             },

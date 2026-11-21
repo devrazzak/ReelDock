@@ -17,13 +17,31 @@ const NAVIGATION_LABELS: Readonly<Record<Direction, string>> = {
     previous: 'navigate to previous reel',
 };
 
+// The attribute, not video.src: for an empty attribute the property can return the page's own URL.
+const loadedVideos = (doc: Document): HTMLVideoElement[] =>
+    [...doc.querySelectorAll<HTMLVideoElement>('video')].filter(video => video.getAttribute('src'));
+
 /** The video of the Reel on screen. Call it after the URL has changed. */
 export function findReelVideo(doc: Document): HTMLVideoElement | null {
     const view = doc.defaultView;
-    if (!view) return null;
-    // The attribute, not video.src: for an empty attribute the property can return the page's own URL.
-    const loaded = [...doc.querySelectorAll<HTMLVideoElement>('video')].filter(video => video.getAttribute('src'));
-    return pickActiveVideo(loaded, view);
+    return view ? pickActiveVideo(loadedVideos(doc), view) : null;
+}
+
+/**
+ * Moves to the next / previous Reel that Instagram has already loaded, for a tab in the background. There its
+ * own buttons do nothing: the scroll animation and the viewport tracking behind them need a rendered page.
+ * Returns false when no neighbour is loaded. The URL follows once the tab is visible again.
+ */
+export function moveToNeighbour(doc: Document, direction: Direction): boolean {
+    const current = findReelVideo(doc);
+    if (!current) return false;
+    const videos = loadedVideos(doc);
+    const neighbour = videos[videos.indexOf(current) + (direction === 'next' ? 1 : -1)];
+    if (!neighbour) return false;
+    // Stopping the old video makes the neighbour, which is now on screen, the current one.
+    current.pause();
+    neighbour.scrollIntoView({ block: 'center', behavior: 'instant' });
+    return true;
 }
 
 /** Instagram's own Next / Previous button. Matched by accessible name, case-insensitively. */

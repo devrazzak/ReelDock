@@ -39,6 +39,9 @@ export interface VideoStage {
 /** A resume this soon after our pause comes from the site syncing its own state, not from the user. */
 const RESUME_UNDO_WINDOW_MS = 500;
 
+/** How often a site's pause of the video in the mini player is undone before we leave it alone. */
+const MAX_STAGE_RESUMES = 3;
+
 /** Facebook's own player skips 10 seconds forward or backward. */
 export const SEEK_SECONDS = 10;
 
@@ -69,6 +72,7 @@ export class ReelSession {
     /** How often a resume was undone for pausedByUser; caps any tug of war with Facebook. */
     private undoneResumes = 0;
     private pausedAt = 0;
+    private stageResumes = 0;
     private lastNavigation: NavigationRecord | null = null;
     private lastStatusJson = '';
     private disposed = false;
@@ -149,6 +153,7 @@ export class ReelSession {
                 if (!video) throw new Error('No video found on the page.');
                 if (video.paused) {
                     this.pausedByUser = null;
+                    this.stageResumes = 0;
                     await this.play(video);
                 } else {
                     this.pausedByUser = video;
@@ -225,6 +230,9 @@ export class ReelSession {
                 if (this.keepUserPause(video)) break;
                 this.keepOnlyCurrentReelPlaying(video);
                 break;
+            case 'pause':
+                this.keepStagePlaying(video);
+                break;
             case 'playing':
                 this.playBlocked = false;
                 break;
@@ -262,6 +270,17 @@ export class ReelSession {
         this.undoneResumes++;
         video.pause();
         return true;
+    }
+
+    /**
+     * A site may pause the video it sees leave its page (Instagram does, once its card is empty). Nobody asked
+     * for that pause, so resume the video shown in the mini player. Pauses from the user and the end of the video stay.
+     */
+    private keepStagePlaying(video: HTMLVideoElement): void {
+        if (this.stage?.video !== video || video === this.pausedByUser || video.ended || this.navigating) return;
+        if (this.stageResumes >= MAX_STAGE_RESUMES) return;
+        this.stageResumes++;
+        void this.play(video);
     }
 
     private isManagingPlayback(): boolean {
@@ -304,7 +323,7 @@ export class ReelSession {
             for (const strategy of this.options.strategies) {
                 if (this.disposed) break;
                 if (!strategy.trigger(direction)) continue;
-                if (await this.waitFor(() => this.getCurrentReelId() !== fromReel)) {
+                if (await this.waitFor(() => this.hasMoved(fromReel, fromVideo, strategy))) {
                     usedStrategy = strategy.name;
                     break;
                 }
@@ -362,6 +381,7 @@ export class ReelSession {
         // window may not have (a wheel scroll does not count as user activation).
         await this.play(next);
         stage?.present(next);
+        this.stageResumes = 0;
         if (this.playBlocked) return false;
         // Checked in the background, so the user can change Reel again right away.
         void this.keepNewReelPlaying(next);
@@ -397,6 +417,16 @@ export class ReelSession {
             this.playBlocked = error instanceof DOMException && error.name === 'NotAllowedError';
         }
         this.publishStatus();
+    }
+
+    private hasMoved(
+        fromReel: string | null,
+        fromVideo: HTMLVideoElement | null,
+        strategy: NavigationStrategy,
+    ): boolean {
+        if (this.getCurrentReelId() !== fromReel) return true;
+        const video = this.getCurrentVideo();
+        return strategy.keepsUrl === true && fromVideo !== null && video !== null && video !== fromVideo;
     }
 
     private onReelsPage(): boolean {

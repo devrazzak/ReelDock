@@ -1,7 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
 import { instagramAdapter } from '@/content/platforms/instagram/instagram-adapter';
-import { findMuteButton, findNavigationButton, findReelVideo } from '@/content/platforms/instagram/instagram-dom';
+import {
+    findMuteButton,
+    findNavigationButton,
+    findReelVideo,
+    moveToNeighbour,
+} from '@/content/platforms/instagram/instagram-dom';
 import { getReelId, isReelsPage } from '@/content/platforms/instagram/instagram-route';
 import { INSTAGRAM_SITE } from '@/shared/sites';
 
@@ -84,5 +89,40 @@ describe('instagram adapter', () => {
     it('takes its identity from the site definition', () => {
         expect(instagramAdapter.id).toBe(INSTAGRAM_SITE.id);
         expect(instagramAdapter.hostnames).toEqual(INSTAGRAM_SITE.hostnames);
+    });
+});
+
+describe('moveToNeighbour', () => {
+    function renderFeed(): HTMLVideoElement[] {
+        document.body.innerHTML = `
+            <video id="a" src="blob:a"></video>
+            <video id="b" src="blob:b"></video>
+            <video id="c" src="blob:c"></video>
+            <video id="empty"></video>`;
+        const videos = [...document.querySelectorAll<HTMLVideoElement>('video')];
+        videos.forEach((video, index) => stubRect(video, index * 700, 700));
+        // jsdom has neither layout nor scrollIntoView.
+        for (const video of videos) video.scrollIntoView = () => undefined;
+        return videos;
+    }
+
+    it('stops the current video and scrolls the next loaded one into view', () => {
+        const [a, b] = renderFeed() as [HTMLVideoElement, HTMLVideoElement];
+        let scrolled: HTMLElement | null = null;
+        b.scrollIntoView = () => (scrolled = b);
+        Object.defineProperty(a, 'paused', { value: false, configurable: true });
+        a.pause = () => Object.defineProperty(a, 'paused', { value: true, configurable: true });
+
+        expect(moveToNeighbour(document, 'next')).toBe(true);
+        expect(a.paused).toBe(true);
+        expect(scrolled).toBe(b);
+    });
+
+    it('does nothing when no neighbour is loaded', () => {
+        const videos = renderFeed();
+        // Only the last loaded video is on screen: nothing after it, and the empty player does not count.
+        videos.forEach(video => stubRect(video, -2000, 700));
+        stubRect(videos[2]!, 0, 700);
+        expect(moveToNeighbour(document, 'next')).toBe(false);
     });
 });

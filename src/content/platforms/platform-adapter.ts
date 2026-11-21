@@ -25,6 +25,11 @@ export interface PlatformAdapter {
      * tab is in the background. Returns false when the page-side helper is not there.
      */
     navigateFromPage?(doc: Document, direction: Direction): boolean;
+    /**
+     * Optional. True when navigateFromPage moves to another video but the page URL only follows once the tab is
+     * visible again. The session then treats "the current video changed" as success instead of waiting for the URL.
+     */
+    readonly pageNavigationKeepsUrl?: boolean;
     /** The site's own Mute button, or null so the caller mutes the <video> directly. */
     findMuteButton(doc: Document, reelId: string): HTMLElement | null;
 }

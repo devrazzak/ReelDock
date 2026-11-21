@@ -1,4 +1,9 @@
-import { findMuteButton, findNavigationButton, findReelVideo } from '@/content/platforms/instagram/instagram-dom';
+import {
+    findMuteButton,
+    findNavigationButton,
+    findReelVideo,
+    moveToNeighbour,
+} from '@/content/platforms/instagram/instagram-dom';
 import { getReelId, isReelsPage } from '@/content/platforms/instagram/instagram-route';
 import type { PlatformAdapter } from '@/content/platforms/platform-adapter';
 import { INSTAGRAM_SITE } from '@/shared/sites';
@@ -12,5 +17,7 @@ export const instagramAdapter: PlatformAdapter = {
     // The id is not needed: a card has no id, so the session reads the video on screen after the URL changed.
     findReelVideo: doc => findReelVideo(doc),
     findNavigationButton,
+    navigateFromPage: moveToNeighbour,
+    pageNavigationKeepsUrl: true,
     findMuteButton: doc => findMuteButton(doc),
 };

@@ -361,6 +361,79 @@ describe('ReelSession with the mini player open', () => {
     });
 });
 
+describe('ReelSession keeps the video in the mini player playing', () => {
+    it('resumes it when the site pauses it, but not when the user does', async () => {
+        const { page, session } = setup({ hidden: false });
+        const stage = new FakeStage();
+        session.attachStage(stage);
+        const video = page.videos[0]!;
+        stage.present(video);
+        await video.play();
+
+        video.pause(); // the site, e.g. Instagram, pausing a video that left its page
+        await settle();
+        expect(video.paused).toBe(false);
+
+        await session.runCommand('toggle-play'); // the user pauses
+        await settle();
+        expect(video.paused).toBe(true);
+    });
+
+    it('stops resuming after a few tries, so it never fights the site', async () => {
+        const { page, session } = setup({ hidden: false });
+        const stage = new FakeStage();
+        session.attachStage(stage);
+        const video = page.videos[0]!;
+        stage.present(video);
+        await video.play();
+
+        for (let attempt = 0; attempt < 5; attempt++) {
+            video.pause();
+            await settle(30);
+        }
+        expect(video.paused).toBe(true);
+    });
+});
+
+describe('ReelSession with a navigation that keeps the URL', () => {
+    it('counts a different current video as moved and plays it', async () => {
+        const page = createFakeReelsPage(document, REELS);
+        const [first, second] = page.videos;
+        // Like Instagram in a background tab: the page jumps to the neighbour, the URL stays.
+        const platform = { ...facebookAdapter, findReelVideo: () => findActiveVideo(document) };
+        const session = new ReelSession({
+            doc: document,
+            platform,
+            strategies: [
+                {
+                    name: 'jump',
+                    keepsUrl: true,
+                    trigger: () => {
+                        first!.pause();
+                        void second!.play();
+                        return true;
+                    },
+                },
+            ],
+            getSettings: () => DEFAULT_SETTINGS,
+            onStatus: () => undefined,
+            isTabHidden: () => true,
+            navigationTimeoutMs: 150,
+            playVerifyMs: 20,
+        });
+        session.start();
+        current = { page, session, settings: DEFAULT_SETTINGS, statuses: [] };
+        await first!.play();
+
+        await session.runCommand('next-reel');
+
+        expect(location.pathname).toBe('/reel/111');
+        expect(second!.paused).toBe(false);
+        expect(first!.paused).toBe(true);
+        expect(session.getStatus().lastNavigation).toMatchObject({ result: 'success', detail: 'jump' });
+    });
+});
+
 describe('ReelSession commands', () => {
     it('toggles play and pause on the current Reel', async () => {
         const { page, session } = setup();
