@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { youtubeAdapter } from '@/content/platforms/youtube/youtube-adapter';
 import { createNavigationStrategies } from '@/content/session/reel-navigator';
-import { findNeighbourShortId } from '@/page-world/youtube-sequence';
+import { countShortsAfter, findContinuationToken, findNeighbourShortId } from '@/page-world/youtube-sequence';
 import { YOUTUBE_BRIDGE_ATTRIBUTE, YOUTUBE_BRIDGE_EVENT } from '@/shared/dom-contract';
 
 const entry = (videoId: unknown) => ({ command: { reelWatchEndpoint: { videoId } } });
@@ -74,5 +74,31 @@ describe('page-navigation strategy', () => {
         const { strategy, received } = setup(true, false);
         expect(strategy.trigger('next')).toBe(false);
         expect(received).not.toHaveBeenCalled();
+    });
+});
+
+describe('countShortsAfter', () => {
+    it('counts the loaded Shorts after the one in the URL', () => {
+        expect(countShortsAfter(data(0), 'aaa')).toBe(2);
+        expect(countShortsAfter(data(0), 'ccc')).toBe(0);
+    });
+
+    it('is null when the Short is not in the list or the data is missing', () => {
+        expect(countShortsAfter(data(0), 'zzz')).toBeNull();
+        expect(countShortsAfter(data(0))).toBeNull();
+        expect(countShortsAfter(undefined, 'aaa')).toBeNull();
+    });
+});
+
+describe('findContinuationToken', () => {
+    it('reads the token that asks for the next batch', () => {
+        const response = { continuationEndpoint: { continuationCommand: { token: 'abc' } } };
+        expect(findContinuationToken({ reelWatchSequenceResponse: response })).toBe('abc');
+    });
+
+    it('is null when there is no token (end of the feed or a changed page)', () => {
+        expect(findContinuationToken(undefined)).toBeNull();
+        expect(findContinuationToken({ reelWatchSequenceResponse: {} })).toBeNull();
+        expect(findContinuationToken({ reelWatchSequenceResponse: { continuationEndpoint: { continuationCommand: { token: '' } } } })).toBeNull();
     });
 });

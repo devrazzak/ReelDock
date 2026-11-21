@@ -6,6 +6,7 @@
 export interface ShortsData {
     currentPlayerIndex?: unknown;
     shortsProcessedSequence?: unknown;
+    reelWatchSequenceResponse?: unknown;
 }
 
 const VIDEO_ID = /^[\w-]+$/;
@@ -33,4 +34,25 @@ export function findNeighbourShortId(
     if (typeof index !== 'number') return null;
 
     return readVideoId(sequence[index + (direction === 'next' ? 1 : -1)]);
+}
+
+/**
+ * How many Shorts are already loaded after the one the page shows. YouTube loads the next batch when its own
+ * scroll gets close to the end of the list; a move that skips its scroll never gets there, so the caller loads it.
+ */
+export function countShortsAfter(data: ShortsData | undefined, currentVideoId?: string): number | null {
+    const sequence = data?.shortsProcessedSequence;
+    if (!Array.isArray(sequence) || !currentVideoId) return null;
+    const index = sequence.findIndex(entry => readVideoId(entry) === currentVideoId);
+    return index === -1 ? null : sequence.length - 1 - index;
+}
+
+/** The token that asks YouTube for the next batch of Shorts, or null when there is none (end of the feed). */
+export function findContinuationToken(data: ShortsData | undefined): string | null {
+    const token = (
+        data?.reelWatchSequenceResponse as
+            | { continuationEndpoint?: { continuationCommand?: { token?: unknown } } }
+            | undefined
+    )?.continuationEndpoint?.continuationCommand?.token;
+    return typeof token === 'string' && token !== '' ? token : null;
 }
