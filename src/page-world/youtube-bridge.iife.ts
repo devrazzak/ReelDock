@@ -15,7 +15,8 @@ const SHORTS_ROOT_VE = 37414;
 
 function navigate(direction: 'next' | 'previous'): void {
     const shorts = document.querySelector<HTMLElement & { __data?: ShortsData }>('ytd-shorts');
-    const videoId = findNeighbourShortId(shorts?.__data, direction);
+    const currentVideoId = location.pathname.match(/^\/shorts\/([\w-]+)/)?.[1];
+    const videoId = findNeighbourShortId(shorts?.__data, direction, currentVideoId);
     if (!videoId) return;
 
     document.querySelector('ytd-app')?.dispatchEvent(

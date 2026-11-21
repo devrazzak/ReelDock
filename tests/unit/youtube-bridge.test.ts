@@ -17,6 +17,16 @@ describe('findNeighbourShortId', () => {
         expect(findNeighbourShortId(data(1), 'previous')).toBe('aaa');
     });
 
+    it('goes by the Short on screen when YouTube\'s index is stale (hidden tab)', () => {
+        // Index still says 0 although the page already moved to 'bbb'.
+        expect(findNeighbourShortId(data(0), 'next', 'bbb')).toBe('ccc');
+        expect(findNeighbourShortId(data(0), 'previous', 'bbb')).toBe('aaa');
+    });
+
+    it('falls back to the index when the Short on screen is not in the list', () => {
+        expect(findNeighbourShortId(data(1), 'next', 'zzz')).toBe('ccc');
+    });
+
     it('returns null at the ends of the list', () => {
         expect(findNeighbourShortId(data(2), 'next')).toBeNull();
         expect(findNeighbourShortId(data(0), 'previous')).toBeNull();
