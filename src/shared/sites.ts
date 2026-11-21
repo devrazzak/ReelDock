@@ -44,7 +44,7 @@ export const INSTAGRAM_SITE: SupportedSite = {
     reelsPath: '/reels/*',
 };
 
-export const SUPPORTED_SITES: readonly SupportedSite[] = [FACEBOOK_SITE, YOUTUBE_SITE];
+export const SUPPORTED_SITES: readonly SupportedSite[] = [FACEBOOK_SITE, YOUTUBE_SITE, INSTAGRAM_SITE];
 
 /** The supported site a page URL belongs to, or null. */
 export function findSiteByUrl(
