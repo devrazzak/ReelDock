@@ -14,13 +14,13 @@ const SIZE = 48;
 const GAP_BELOW_ANCHOR = 16;
 const FALLBACK_MARGIN = 24;
 
-// Matches Facebook's own up/down Reel buttons (measured on facebook.com, Nov 2026): a 48 px circle with a
-// 15 % white fill, 60 % opacity at rest and full opacity on hover; the icon draws its own white ring.
+// Same size as Facebook's own up/down Reel buttons (48 px circle, full opacity on hover). The dark fill keeps
+// the white icon readable on both dark pages (Facebook) and light ones (YouTube's light theme).
 const BUTTON_CSS = `
 :host { all: initial; position: fixed; z-index: 2147483647; }
 button {
     width: ${SIZE}px; height: ${SIZE}px; border-radius: 50%; padding: 0; border: 0; cursor: pointer;
-    display: block; background: rgb(255 255 255 / 0.15); color: #fff; opacity: 0.6;
+    display: block; background: rgb(0 0 0 / 0.55); color: #fff; opacity: 0.75;
     transition: opacity 0.1s linear, transform 0.3s;
 }
 button:hover, button:focus-visible, button[aria-pressed='true'] { opacity: 1; }
