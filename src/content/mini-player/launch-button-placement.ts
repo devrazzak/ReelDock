@@ -41,3 +41,21 @@ export function belowAnchor(
         return { left: CORNER_MARGIN, bottom: CORNER_MARGIN };
     };
 }
+
+/** Gap between the video's edges and the button, in px. */
+const VIDEO_INSET = 12;
+
+/**
+ * A single video on any page: inside the video's top-right corner. When the video is partly scrolled out of
+ * view, the button stays at the visible edge instead of leaving with it.
+ */
+export function overVideoCorner(getVideo: () => HTMLElement | null, view: Window): ButtonPlacement {
+    return () => {
+        const rect = getVideo()?.getBoundingClientRect();
+        if (!rect) return { left: CORNER_MARGIN, bottom: CORNER_MARGIN };
+        return {
+            right: Math.round(Math.max(view.innerWidth - rect.right, 0) + VIDEO_INSET),
+            top: Math.round(Math.max(rect.top, 0) + VIDEO_INSET),
+        };
+    };
+}

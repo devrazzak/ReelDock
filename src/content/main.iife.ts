@@ -6,7 +6,7 @@ import { findPlatformAdapter } from '@/content/platforms';
 import type { PlatformAdapter } from '@/content/platforms/platform-adapter';
 import { createNavigationStrategies } from '@/content/session/reel-navigator';
 import { ReelSession } from '@/content/session/reel-session';
-import { BACKGROUND_ATTRIBUTE } from '@/shared/dom-contract';
+import { BACKGROUND_ATTRIBUTE, FEED_PAGE_ATTRIBUTE } from '@/shared/dom-contract';
 import { isContentRequest, STATUS_PORT_NAME, type ContentResponse, type StatusPortMessage } from '@/shared/messages';
 import { DEFAULT_SETTINGS, loadSettings, onSettingsChanged, type ExtensionSettings } from '@/shared/settings';
 import type { PlaybackStatus } from '@/shared/status';
@@ -41,9 +41,12 @@ function main(): void {
                 session.dispose();
                 stopWatchingSettings();
                 launchButton?.setVisible(false);
+                document.documentElement.removeAttribute(FEED_PAGE_ATTRIBUTE);
                 return;
             }
             launchButton?.setVisible(status.onReelsPage);
+            // Tells the any-video feature to stay out of this page while it is a feed.
+            document.documentElement.toggleAttribute(FEED_PAGE_ATTRIBUTE, status.onReelsPage);
             const message: StatusPortMessage = { type: 'status', status };
             for (const port of ports) port.postMessage(message);
         },

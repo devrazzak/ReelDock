@@ -11,3 +11,12 @@ export const BACKGROUND_ATTRIBUTE = 'data-reels-bg-player';
  */
 export const YOUTUBE_BRIDGE_ATTRIBUTE = 'data-reeldock-youtube-bridge';
 export const YOUTUBE_BRIDGE_EVENT = 'reeldock:youtube-navigate';
+
+/**
+ * Set on <html> by the Reels feature while the page is a short-video feed (Reels, Shorts), which has its own
+ * launch button. The any-video feature leaves such pages alone, so the two features never need each other's code.
+ */
+export const FEED_PAGE_ATTRIBUTE = 'data-reeldock-feed';
+
+/** Set on <html> once the any-video script runs, so a second copy of it on the same page does nothing. */
+export const ANY_VIDEO_ATTRIBUTE = 'data-reeldock-any-video';

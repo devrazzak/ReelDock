@@ -2,6 +2,7 @@ import type { Direction, PlatformAdapter } from '@/content/platforms/platform-ad
 import type { NavigationStrategy } from '@/content/session/reel-navigator';
 import { findActiveVideo } from '@/content/video/active-video';
 import { isLoopRestart } from '@/content/video/end-detection';
+import { SEEK_SECONDS, seekBy } from '@/content/video/seek';
 import type { PlayerCommand } from '@/shared/messages';
 import type { ExtensionSettings } from '@/shared/settings';
 import { INITIAL_STATUS, type NavigationRecord, type PlaybackStatus, type VideoState } from '@/shared/status';
@@ -41,9 +42,6 @@ const RESUME_UNDO_WINDOW_MS = 500;
 
 /** How often a site's pause of the video in the mini player is undone before we leave it alone. */
 const MAX_STAGE_RESUMES = 3;
-
-/** Facebook's own player skips 10 seconds forward or backward. */
-export const SEEK_SECONDS = 10;
 
 // Media events do not bubble, but they can be captured on the document.
 // One capture listener per event covers every current and future <video>.
@@ -198,9 +196,7 @@ export class ReelSession {
 
     private seek(seconds: number): void {
         const video = this.getCurrentVideo();
-        if (!video || !Number.isFinite(video.duration)) return;
-        // Stop just short of the end so `ended` fires and auto next takes over.
-        video.currentTime = Math.min(Math.max(video.currentTime + seconds, 0), video.duration - 0.1);
+        if (video) seekBy(video, seconds);
     }
 
     /** Re-evaluates and publishes status, e.g. after settings change. */
