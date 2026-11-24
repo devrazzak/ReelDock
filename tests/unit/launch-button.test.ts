@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { LaunchButton } from '@/content/mini-player/launch-button';
 import { belowAnchor, type ButtonPlacement } from '@/content/mini-player/launch-button-placement';
@@ -77,5 +77,31 @@ describe('launch button themes', () => {
         const facebook = getLaunchButtonTheme('facebook');
         expect(facebook.background).not.toBe(DEFAULT_THEME.background);
         expect(facebook.size).toBe(DEFAULT_THEME.size);
+    });
+});
+
+describe('LaunchButton click', () => {
+    it('opens even when the page stops clicks on the document', () => {
+        const onClick = vi.fn();
+        const stopClicks = (event: Event) => event.stopPropagation();
+        document.addEventListener('click', stopClicks, true);
+
+        const button = new LaunchButton(document, () => ({ right: 10, top: 20 }), onClick);
+        button.setVisible(true);
+        document.querySelector('reeldock-launcher')!.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+
+        expect(onClick).toHaveBeenCalledTimes(1);
+        document.removeEventListener('click', stopClicks, true);
+        button.setVisible(false);
+    });
+
+    it('ignores clicks elsewhere on the page', () => {
+        const onClick = vi.fn();
+        const button = new LaunchButton(document, () => ({ right: 10, top: 20 }), onClick);
+        button.setVisible(true);
+        document.body.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+
+        expect(onClick).not.toHaveBeenCalled();
+        button.setVisible(false);
     });
 });

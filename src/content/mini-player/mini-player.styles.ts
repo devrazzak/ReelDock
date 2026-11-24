@@ -8,7 +8,12 @@ html, body { margin: 0; height: 100%; background: #000; overflow: hidden; font-f
 .player[data-navigation='off'] { cursor: default; }
 
 .stage { position: absolute; inset: 0; transition: transform 220ms ease, opacity 220ms ease; }
-.stage video { width: 100%; height: 100%; object-fit: contain; background: #000; display: block; }
+/* !important: players such as YouTube keep rewriting the video's inline style (size, position, scale), also here. */
+.stage video {
+    position: static !important; width: 100% !important; height: 100% !important; max-width: none !important;
+    margin: 0 !important; transform: none !important; object-fit: contain !important; display: block !important;
+    background: #000;
+}
 .dragging .stage { transition: none; }
 .stage.leave-next { transform: translateY(-14%); opacity: 0; }
 .stage.leave-previous { transform: translateY(14%); opacity: 0; }

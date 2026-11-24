@@ -27,8 +27,11 @@ export default defineManifest({
         service_worker: 'src/background/service-worker.ts',
         type: 'module',
     },
-    permissions: ['storage'],
+    // scripting: registers the any-video script on the sites the user allows. It adds no install warning.
+    permissions: ['storage', 'scripting'],
     host_permissions: SITE_MATCHES,
+    // Asked for one site at a time when the user turns on the mini player there, never at install.
+    optional_host_permissions: ['https://*/*'],
     content_scripts: [
         {
             // Runs in the page's own JS world before the site's scripts, so it can answer visibility checks.

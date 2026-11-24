@@ -9,7 +9,13 @@ import { LaunchButton } from '@/content/mini-player/launch-button';
 import { overVideoCorner } from '@/content/mini-player/launch-button-placement';
 import { MiniPlayer } from '@/content/mini-player/mini-player';
 import { windowSizeFor } from '@/content/mini-player/window-size';
+import { openNativePip } from '@/content/native-pip/native-pip';
+import { showNotice } from '@/content/native-pip/notice';
+import { isNativePipRemembered, rememberNativePip } from '@/content/native-pip/remembered-sites';
 import { ANY_VIDEO_ATTRIBUTE, FEED_PAGE_ATTRIBUTE } from '@/shared/dom-contract';
+
+/** A mini player closed this soon after opening was not closed by the user: something else closed it. */
+const EARLY_CLOSE_MS = 1000;
 
 function isInside(rect: DOMRect, x: number, y: number): boolean {
     return x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom;
@@ -26,6 +32,13 @@ function main(): void {
 
     let video: HTMLVideoElement | null = null;
     let hovering = false;
+    let openedAt = 0;
+    // Set once something else closed our window on this site: clicks then open Chrome's own window.
+    let useNativePip = false;
+    isNativePipRemembered(location.hostname).then(
+        remembered => (useNativePip ||= remembered),
+        () => undefined,
+    );
 
     // The button only shows while the pointer is over the video, so it never sits on top of a page at rest.
     const update = (): void => {
@@ -34,15 +47,39 @@ function main(): void {
 
     const miniPlayer = new MiniPlayer(window, {
         ...createVideoControls(() => miniPlayer.video),
-        onOpen: update,
-        onClose: update,
+        onOpen: () => {
+            openedAt = Date.now();
+            update();
+        },
+        onClose: () => {
+            update();
+            if (Date.now() - openedAt >= EARLY_CLOSE_MS) return;
+            // Chrome allows one window per click, so the next click is the one that can open Chrome's own.
+            useNativePip = true;
+            void rememberNativePip(location.hostname).catch(() => undefined);
+            showNotice(document, "Another extension closed the mini player. Click again to use Chrome's own window.");
+        },
     });
 
     const button = new LaunchButton(
         document,
         overVideoCorner(() => video, window),
         () => {
-            if (video) void miniPlayer.open(video, windowSizeFor(video)).catch(() => undefined);
+            if (!video) return;
+            if (document.pictureInPictureElement) {
+                void document.exitPictureInPicture().catch(() => undefined);
+                return;
+            }
+            if (useNativePip) {
+                openNativePip(video).catch((error: unknown) => {
+                    console.error("ReelDock: could not open Chrome's Picture-in-Picture", error);
+                });
+                return;
+            }
+            // Chrome gives no other sign when it refuses to open the window, so the reason goes to the console.
+            miniPlayer.open(video, windowSizeFor(video)).catch((error: unknown) => {
+                console.error('ReelDock: could not open the mini player', error);
+            });
         },
     );
 
@@ -51,6 +88,7 @@ function main(): void {
         update();
     }).start();
 
+    // Capture phase: players often stop pointer events at their own overlay, which would hide the button.
     document.addEventListener(
         'pointermove',
         event => {
@@ -59,7 +97,7 @@ function main(): void {
             hovering = inside;
             update();
         },
-        { passive: true },
+        { passive: true, capture: true },
     );
     root.addEventListener('pointerleave', () => {
         hovering = false;

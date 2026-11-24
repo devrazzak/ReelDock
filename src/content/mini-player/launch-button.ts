@@ -64,7 +64,16 @@ export class LaunchButton {
             createSvg(doc, theme.ring ? [RING, ...GLYPH] : GLYPH),
         ]);
         shadow.append(style, this.button);
-        this.button.addEventListener('click', onClick);
+        // Listened for on the window in the capture phase, which runs before any handler the page added to the
+        // document, so a page that stops clicks cannot swallow ours. Seen from outside the closed shadow root,
+        // the click's target is the host element.
+        doc.defaultView?.addEventListener(
+            'click',
+            event => {
+                if (event.target === this.host) onClick();
+            },
+            true,
+        );
         doc.defaultView?.addEventListener('resize', () => this.place());
         this.setOpen(false);
     }

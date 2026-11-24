@@ -1,10 +1,15 @@
 /**
  * Event-driven only: Chrome may stop this worker at any time, so it keeps no state in memory.
- * Playback logic lives in the content script; this worker only routes keyboard shortcuts.
+ * Playback logic lives in the content scripts; this worker routes keyboard shortcuts and keeps the
+ * any-video script registered on the sites the user allowed.
  */
+// Resolves to the built file of the any-video script (bundled as IIFE because of the .iife name).
+import anyVideoScript from '@/content/any-video/main.iife.ts?script';
 import { isPlayerCommand, type ContentRequest, type PlayerCommand } from '@/shared/messages';
 import { findReelsTab } from '@/shared/reels-tab';
 import { loadSettings, updateSettings } from '@/shared/settings';
+
+import { injectIntoOpenTabs, syncAnyVideoScript } from './site-access';
 
 async function sendToReelsTab(command: PlayerCommand): Promise<void> {
     const tab = await findReelsTab();
@@ -39,4 +44,14 @@ chrome.commands.onCommand.addListener(command => {
             await flashBadge(next.backgroundPlayback ? 'ON' : 'OFF');
         }
     })();
+});
+
+// Listeners are registered at the top level so Chrome can wake the worker for them.
+const syncSites = () => void syncAnyVideoScript(anyVideoScript);
+chrome.runtime.onInstalled.addListener(syncSites);
+chrome.runtime.onStartup.addListener(syncSites);
+chrome.permissions.onRemoved.addListener(syncSites);
+chrome.permissions.onAdded.addListener(({ origins = [] }) => {
+    syncSites();
+    void injectIntoOpenTabs(origins, anyVideoScript);
 });
