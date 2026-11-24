@@ -1,4 +1,6 @@
-export type Direction = 'next' | 'previous';
+import type { Direction } from '@/shared/direction';
+
+export type { Direction };
 
 /**
  * Everything the player needs to know about one site's short-video page.

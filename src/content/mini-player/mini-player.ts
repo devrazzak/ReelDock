@@ -1,12 +1,16 @@
 import { createElement, createSvg, type IconShape } from '@/content/dom/build';
 import { MINI_PLAYER_CSS } from '@/content/mini-player/mini-player.styles';
-import type { Direction } from '@/content/platforms/platform-adapter';
-import type { VideoStage } from '@/content/session/reel-session';
+import { PORTRAIT_WINDOW_SIZE, type WindowSize } from '@/content/mini-player/window-size';
+import type { Direction } from '@/shared/direction';
 
 export interface MiniPlayerHandlers {
-    onNavigate: (direction: Direction) => Promise<void>;
+    /**
+     * Optional. Moves to the previous or next video in a feed. Without it the window has no previous / next
+     * buttons and ignores wheel, drag and arrow-up / arrow-down, which suits a single video.
+     */
+    onNavigate?: (direction: Direction) => Promise<void>;
     onTogglePlay: () => void;
-    /** Mutes through Facebook's own button, so the choice carries over to the next Reels. */
+    /** May mute through the site's own button, so the choice carries over to the next video. */
     onToggleMute: () => void;
     onSeek: (direction: 'forward' | 'backward') => void;
     /** Called with the mini player's document so media events inside it can be observed. */
@@ -68,18 +72,19 @@ export function wheelPixels(event: Pick<WheelEvent, 'deltaY' | 'deltaMode'>): nu
 
 interface PresentedVideo {
     video: HTMLVideoElement;
-    // Where the element lives in Facebook's page, so it can be put back exactly there.
+    // Where the element lives in the site's page, so it can be put back exactly there.
     parent: ParentNode;
     nextSibling: Node | null;
     style: string | null;
 }
 
 /**
- * A floating, always-on-top window (Document Picture-in-Picture) that shows Facebook's own
+ * A floating, always-on-top window (Document Picture-in-Picture) that shows the site's own
  * <video> element. The element is moved into the window and back; nothing is copied or re-streamed.
- * Reels change with the mouse wheel / trackpad, a vertical drag, the arrow keys or the buttons.
+ * It knows nothing about any feature: callers pass the video and the handlers.
+ * With onNavigate, videos change with the mouse wheel / trackpad, a vertical drag, the arrow keys or the buttons.
  */
-export class MiniPlayer implements VideoStage {
+export class MiniPlayer {
     private pip: Window | null = null;
     private presented: PresentedVideo | null = null;
     private elements: {
@@ -110,8 +115,12 @@ export class MiniPlayer implements VideoStage {
         return this.presented?.video ?? null;
     }
 
-    /** Must be called from a user gesture (click or key press) in the Facebook page. */
-    async open(video: HTMLVideoElement | null): Promise<void> {
+    private get canNavigate(): boolean {
+        return this.handlers.onNavigate !== undefined;
+    }
+
+    /** Must be called from a user gesture (click or key press) in the site's page. */
+    async open(video: HTMLVideoElement | null, size: WindowSize = PORTRAIT_WINDOW_SIZE): Promise<void> {
         if (this.pip) {
             this.pip.focus();
             return;
@@ -119,13 +128,13 @@ export class MiniPlayer implements VideoStage {
         const api = this.opener.documentPictureInPicture;
         if (!api) throw new Error('The mini player needs Chrome 116 or later.');
 
-        const pip = await api.requestWindow({ width: 360, height: 640 });
+        const pip = await api.requestWindow(size);
         this.pip = pip;
         this.build(pip.document);
         pip.addEventListener('pagehide', this.handleWindowClosed, { once: true });
         this.handlers.onOpen(pip.document);
         if (video) {
-            // Play before moving: only Facebook's page is sure to have the user's interaction.
+            // Play before moving: only the site's page is sure to have the user's interaction.
             await video.play().catch(() => undefined);
             this.present(video);
         }
@@ -161,7 +170,7 @@ export class MiniPlayer implements VideoStage {
         this.syncControls();
     }
 
-    /** Returns the video to its place in Facebook's page. */
+    /** Returns the video to its place in the site's page. */
     release(direction?: Direction): void {
         if (direction && this.elements) {
             this.elements.stage.classList.add(`leave-${direction}`);
@@ -186,15 +195,18 @@ export class MiniPlayer implements VideoStage {
         this.elements = null;
         this.busy = false;
         this.handlers.onClose();
-        // Back in the Facebook page, carry on where the mini player left off.
-        if (video && wasPlaying) void video.play().catch(() => undefined);
+        // Back in the site's page, carry on where the mini player left off. If the site removed the video's
+        // old place meanwhile (e.g. a single-page app changed route), it is no longer in the page: playing it
+        // would only leave invisible sound behind.
+        if (video?.isConnected && wasPlaying) void video.play().catch(() => undefined);
     };
 
     private async navigate(direction: Direction): Promise<void> {
-        if (this.busy) return;
+        const { onNavigate } = this.handlers;
+        if (!onNavigate || this.busy) return;
         this.setBusy(true);
         try {
-            await this.handlers.onNavigate(direction);
+            await onNavigate(direction);
         } finally {
             this.setBusy(false);
             this.elements?.stage.classList.remove('leave-next', 'leave-previous');
@@ -251,8 +263,12 @@ export class MiniPlayer implements VideoStage {
                     div('spinner', [], { role: 'status', 'aria-label': 'Loading next video' }),
                     div('paused-icon', [createSvg(doc, ICONS.play)]),
                     div('controls side', [
-                        button('previous', 'Previous video', ICONS.previous),
-                        button('next', 'Next video', ICONS.next),
+                        ...(this.canNavigate
+                            ? [
+                                  button('previous', 'Previous video', ICONS.previous),
+                                  button('next', 'Next video', ICONS.next),
+                              ]
+                            : []),
                         button('mute', 'Mute', ICONS.sound),
                     ]),
                     div('controls bottom', [
@@ -262,7 +278,11 @@ export class MiniPlayer implements VideoStage {
                     ]),
                     div('progress', [div('progress-bar')]),
                 ],
-                { role: 'region', 'aria-label': 'ReelDock mini player' },
+                {
+                    role: 'region',
+                    'aria-label': 'ReelDock mini player',
+                    ...(!this.canNavigate && { 'data-navigation': 'off' }),
+                },
             ),
         );
 
@@ -280,7 +300,7 @@ export class MiniPlayer implements VideoStage {
         };
 
         this.bindButtons(doc);
-        this.bindWheel(doc);
+        if (this.canNavigate) this.bindWheel(doc);
         this.bindDrag(this.elements.player);
         this.bindKeyboard(doc);
         for (const type of [
@@ -335,7 +355,8 @@ export class MiniPlayer implements VideoStage {
         player.addEventListener('pointermove', event => {
             if (startY === null || !this.elements) return;
             distance = event.clientY - startY;
-            this.elements.stage.style.transform = `translateY(${distance * 0.6}px)`;
+            // Without navigation the distance only tells a click from a drag; the video does not follow the pointer.
+            if (this.canNavigate) this.elements.stage.style.transform = `translateY(${distance * 0.6}px)`;
         });
         const finish = () => {
             if (startY === null || !this.elements) return;
@@ -343,8 +364,9 @@ export class MiniPlayer implements VideoStage {
             player.classList.remove('dragging');
             this.elements.stage.style.transform = '';
             // Drag up = next Reel, drag down = previous Reel, like a phone.
-            if (Math.abs(distance) >= DRAG_THRESHOLD) void this.navigate(distance < 0 ? 'next' : 'previous');
-            else if (Math.abs(distance) < CLICK_TOLERANCE) this.handlers.onTogglePlay();
+            if (this.canNavigate && Math.abs(distance) >= DRAG_THRESHOLD) {
+                void this.navigate(distance < 0 ? 'next' : 'previous');
+            } else if (Math.abs(distance) < CLICK_TOLERANCE) this.handlers.onTogglePlay();
         };
         player.addEventListener('pointerup', finish);
         player.addEventListener('pointercancel', finish);
@@ -352,8 +374,8 @@ export class MiniPlayer implements VideoStage {
 
     private bindKeyboard(doc: Document): void {
         doc.addEventListener('keydown', event => {
-            if (event.key === 'ArrowDown') void this.navigate('next');
-            else if (event.key === 'ArrowUp') void this.navigate('previous');
+            if (event.key === 'ArrowDown' && this.canNavigate) void this.navigate('next');
+            else if (event.key === 'ArrowUp' && this.canNavigate) void this.navigate('previous');
             else if (event.key === ' ') this.handlers.onTogglePlay();
             else if (event.key === 'ArrowRight') this.handlers.onSeek('forward');
             else if (event.key === 'ArrowLeft') this.handlers.onSeek('backward');

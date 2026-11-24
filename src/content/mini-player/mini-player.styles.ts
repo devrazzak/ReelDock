@@ -5,6 +5,7 @@ html, body { margin: 0; height: 100%; background: #000; overflow: hidden; font-f
 
 .player { position: fixed; inset: 0; user-select: none; touch-action: none; cursor: grab; }
 .player.dragging { cursor: grabbing; }
+.player[data-navigation='off'] { cursor: default; }
 
 .stage { position: absolute; inset: 0; transition: transform 220ms ease, opacity 220ms ease; }
 .stage video { width: 100%; height: 100%; object-fit: contain; background: #000; display: block; }
