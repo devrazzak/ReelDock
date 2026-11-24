@@ -1,4 +1,5 @@
 import { LaunchButton } from '@/content/mini-player/launch-button';
+import { belowAnchor } from '@/content/mini-player/launch-button-placement';
 import { getLaunchButtonTheme } from '@/content/mini-player/launch-button-theme';
 import { MiniPlayer } from '@/content/mini-player/mini-player';
 import { findPlatformAdapter } from '@/content/platforms';
@@ -111,14 +112,15 @@ function createMiniPlayer(session: ReelSession, platform: PlatformAdapter): Laun
     });
     session.attachStage(miniPlayer);
 
+    const theme = getLaunchButtonTheme(platform.id);
     const button = new LaunchButton(
         document,
-        () => platform.findNavigationButton(document, 'next'),
+        belowAnchor(() => platform.findNavigationButton(document, 'next'), theme, window),
         () => {
             if (miniPlayer.isOpen) miniPlayer.close();
             else void miniPlayer.open(session.getCurrentVideo()).catch(() => undefined);
         },
-        getLaunchButtonTheme(platform.id),
+        theme,
     );
     return button;
 }

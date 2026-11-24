@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
 import { LaunchButton } from '@/content/mini-player/launch-button';
+import { belowAnchor, type ButtonPlacement } from '@/content/mini-player/launch-button-placement';
+import { DEFAULT_THEME, getLaunchButtonTheme, type LaunchButtonTheme } from '@/content/mini-player/launch-button-theme';
 
 function anchorAt(left: number, top: number): HTMLElement {
     const anchor = document.createElement('div');
@@ -9,82 +11,71 @@ function anchorAt(left: number, top: number): HTMLElement {
     return anchor;
 }
 
-describe('LaunchButton placement', () => {
-    it("sits centred 16 px under the site's next button", () => {
-        const button = new LaunchButton(
-            document,
-            () => anchorAt(964, 420),
-            () => undefined,
-        );
-        button.setVisible(true);
+/** Shows a launch button and returns its host element, which carries the position. */
+function showButton(placement: ButtonPlacement, theme: LaunchButtonTheme = DEFAULT_THEME) {
+    const button = new LaunchButton(document, placement, () => undefined, theme);
+    button.setVisible(true);
+    const hosts = document.querySelectorAll<HTMLElement>('reeldock-launcher');
+    return { button, host: hosts[hosts.length - 1]! };
+}
 
-        const host = document.querySelector<HTMLElement>('reeldock-launcher')!;
+describe('LaunchButton placement below the anchor', () => {
+    it("sits centred 16 px under the site's next button", () => {
+        const { button, host } = showButton(belowAnchor(() => anchorAt(964, 420), DEFAULT_THEME, window));
         expect(host.style.left).toBe('964px');
         expect(host.style.top).toBe('484px');
         button.setVisible(false);
     });
 
     it('falls back to the bottom-left corner when the next button is missing', () => {
-        const button = new LaunchButton(
-            document,
-            () => null,
-            () => undefined,
-        );
-        button.setVisible(true);
-
-        const host = document.querySelector<HTMLElement>('reeldock-launcher')!;
+        const { button, host } = showButton(belowAnchor(() => null, DEFAULT_THEME, window));
         expect(host.style.left).toBe('24px');
         expect(host.style.bottom).toBe('24px');
         expect(host.style.top).toBe('');
         button.setVisible(false);
     });
-});
 
-describe('launch button themes', () => {
-    it('gives unknown sites the default look', async () => {
-        const { DEFAULT_THEME, getLaunchButtonTheme } = await import('@/content/mini-player/launch-button-theme');
-        expect(getLaunchButtonTheme('some-new-site')).toEqual(DEFAULT_THEME);
-    });
-
-    it('lets a site override only what it lists', async () => {
-        const { DEFAULT_THEME, getLaunchButtonTheme } = await import('@/content/mini-player/launch-button-theme');
-        const facebook = getLaunchButtonTheme('facebook');
-        expect(facebook.background).not.toBe(DEFAULT_THEME.background);
-        expect(facebook.size).toBe(DEFAULT_THEME.size);
-    });
-});
-
-describe('LaunchButton fallback position', () => {
-    it('waits where the next button will appear, so it does not jump later', async () => {
-        const { getLaunchButtonTheme } = await import('@/content/mini-player/launch-button-theme');
+    it('waits where the next button will appear, so it does not jump later', () => {
         const theme = getLaunchButtonTheme('youtube');
-        const button = new LaunchButton(
-            document,
-            () => null,
-            () => undefined,
+        let anchor: HTMLElement | null = null;
+        const { button, host } = showButton(
+            belowAnchor(() => anchor, theme, window),
             theme,
         );
-        button.setVisible(true);
-
-        const host = document.querySelector<HTMLElement>('reeldock-launcher')!;
         expect(host.style.right).toBe('24px');
         expect(host.style.top).toBe(`${Math.round(window.innerHeight / 2 + 116)}px`);
         expect(host.style.left).toBe('');
         expect(host.style.bottom).toBe('');
 
         // Once the real button exists it takes over and the stale right offset is cleared.
-        const anchored = new LaunchButton(
-            document,
-            () => anchorAt(900, 400),
-            () => undefined,
-            theme,
-        );
-        anchored.setVisible(true);
-        const hosts = document.querySelectorAll<HTMLElement>('reeldock-launcher');
-        expect(hosts[1]!.style.right).toBe('');
-        expect(hosts[1]!.style.left).toBe('896px');
-        expect(hosts[1]!.style.top).toBe('464px');
+        anchor = anchorAt(900, 400);
+        button.place();
+        expect(host.style.right).toBe('');
+        expect(host.style.left).toBe('896px');
+        expect(host.style.top).toBe('464px');
         button.setVisible(false);
-        anchored.setVisible(false);
+    });
+});
+
+describe('LaunchButton with a custom placement', () => {
+    it('goes wherever the placement says', () => {
+        const { button, host } = showButton(() => ({ right: 10, top: 20 }));
+        expect(host.style.right).toBe('10px');
+        expect(host.style.top).toBe('20px');
+        expect(host.style.left).toBe('');
+        expect(host.style.bottom).toBe('');
+        button.setVisible(false);
+    });
+});
+
+describe('launch button themes', () => {
+    it('gives unknown sites the default look', () => {
+        expect(getLaunchButtonTheme('some-new-site')).toEqual(DEFAULT_THEME);
+    });
+
+    it('lets a site override only what it lists', () => {
+        const facebook = getLaunchButtonTheme('facebook');
+        expect(facebook.background).not.toBe(DEFAULT_THEME.background);
+        expect(facebook.size).toBe(DEFAULT_THEME.size);
     });
 });

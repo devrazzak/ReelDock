@@ -1,15 +1,14 @@
 /**
- * The button on the Reels page that opens the mini player.
+ * The button in the page that opens the mini player.
  * Chrome only opens a Picture-in-Picture window from a click inside the page itself,
  * so the popup or a keyboard shortcut cannot do this.
  *
- * It sits right under the site's own "next" button, where it reads as part of the Reel navigation
- * and stays clear of Facebook's chat bubbles in the bottom-right corner. If that button cannot be
- * found, it falls back to the bottom-left corner, which Facebook leaves empty.
+ * Where it sits is decided by the caller (see launch-button-placement.ts); this class only draws it.
  * Rendered in a closed shadow root so the page's CSS and ours cannot affect each other.
  */
 import { createElement, createSvg, type IconShape } from '../dom/build';
-import { CORNER_MARGIN, DEFAULT_THEME, type LaunchButtonTheme } from './launch-button-theme';
+import type { ButtonPlacement } from './launch-button-placement';
+import { DEFAULT_THEME, type LaunchButtonTheme } from './launch-button-theme';
 
 const buildCss = ({ size, iconSize, background, shadow, color, restingOpacity, dark }: LaunchButtonTheme) => `
 :host { all: initial; position: fixed; z-index: 2147483647; }
@@ -51,14 +50,11 @@ export class LaunchButton {
     private readonly host: HTMLElement;
     private readonly button: HTMLButtonElement;
 
-    /**
-     * @param getAnchor returns the element to sit under (the site's own "next" button), or null.
-     */
     constructor(
         doc: Document,
-        private readonly getAnchor: () => HTMLElement | null,
+        private readonly placement: ButtonPlacement,
         onClick: () => void,
-        private readonly theme: LaunchButtonTheme = DEFAULT_THEME,
+        theme: LaunchButtonTheme = DEFAULT_THEME,
     ) {
         this.host = doc.createElement('reeldock-launcher');
         const shadow = this.host.attachShadow({ mode: 'closed' });
@@ -73,7 +69,7 @@ export class LaunchButton {
         this.setOpen(false);
     }
 
-    /** Shows the button on Reels pages and removes it elsewhere. Also re-aligns it with the page layout. */
+    /** Adds the button to the page or removes it. Also re-aligns it with the page layout. */
     setVisible(visible: boolean): void {
         const parent = this.host.ownerDocument.body;
         if (visible && parent && !this.host.isConnected) parent.append(this.host);
@@ -88,22 +84,14 @@ export class LaunchButton {
         this.button.title = label;
     }
 
-    private place(): void {
-        const rect = this.getAnchor()?.getBoundingClientRect();
+    /** Moves the button to where the placement says. Call it when what the button follows has moved. */
+    place(): void {
+        const position = this.placement();
         const { style } = this.host;
-        const { size, gapBelowAnchor, fallbackPosition } = this.theme;
-        const view = this.host.ownerDocument.defaultView;
-        style.left = style.right = style.top = style.bottom = '';
-
-        if (rect && rect.width > 0) {
-            style.left = `${Math.round(rect.left + rect.width / 2 - size / 2)}px`;
-            style.top = `${Math.round(rect.bottom + gapBelowAnchor)}px`;
-        } else if (fallbackPosition && view) {
-            style.right = `${fallbackPosition.right}px`;
-            style.top = `${Math.round(view.innerHeight / 2 + fallbackPosition.fromCenter)}px`;
-        } else {
-            style.left = `${CORNER_MARGIN}px`;
-            style.bottom = `${CORNER_MARGIN}px`;
+        // Clear the sides the placement leaves out, so an old value cannot pull the button elsewhere.
+        for (const side of ['left', 'right', 'top', 'bottom'] as const) {
+            const value = position[side];
+            style[side] = value === undefined ? '' : `${value}px`;
         }
     }
 }
