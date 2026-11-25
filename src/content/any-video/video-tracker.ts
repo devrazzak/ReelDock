@@ -4,20 +4,22 @@ import { FEED_PAGE_ATTRIBUTE } from '@/shared/dom-contract';
 // Smaller videos are previews, thumbnails or ads, not something to watch in a mini player.
 const MIN_WIDTH = 200;
 const MIN_HEIGHT = 120;
+// Hover previews play inside a link (thumbnails) or in a preview container (YouTube's home page).
+const PREVIEW_CONTAINER = 'a[href], ytd-video-preview';
 
 // Media events do not bubble, but capture listeners on the document see them for every <video>.
 const TRACKED_EVENTS = ['scroll', 'loadedmetadata', 'play', 'emptied'] as const;
 
-function isLargeEnough(video: HTMLVideoElement): boolean {
+function isMainVideoCandidate(video: HTMLVideoElement): boolean {
     const { width, height } = video.getBoundingClientRect();
-    return width >= MIN_WIDTH && height >= MIN_HEIGHT;
+    return width >= MIN_WIDTH && height >= MIN_HEIGHT && video.closest(PREVIEW_CONTAINER) === null;
 }
 
 /** The video the user is most likely watching: a playing one first, otherwise the largest on screen. */
 export function findMainVideo(doc: Document): HTMLVideoElement | null {
     const view = doc.defaultView;
     if (!view) return null;
-    const candidates = Array.from(doc.querySelectorAll('video')).filter(isLargeEnough);
+    const candidates = Array.from(doc.querySelectorAll('video')).filter(isMainVideoCandidate);
     return pickActiveVideo(candidates, view);
 }
 

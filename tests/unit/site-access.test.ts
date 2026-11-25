@@ -51,6 +51,7 @@ describe('syncAnyVideoScript', () => {
         expect(script?.matches).toEqual([...REQUIRED, 'https://example.com/*']);
         expect(script?.js).toEqual([SCRIPT_FILE]);
         expect(script?.persistAcrossSessions).toBe(true);
+        expect(script?.allFrames).toBe(true);
     });
 
     it('follows later grants and removals', async () => {

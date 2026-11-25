@@ -34,6 +34,8 @@ async function sync(scriptFile: string): Promise<void> {
         js: [scriptFile],
         matches,
         runAt: 'document_idle',
+        // Movie sites embed their player in an iframe from another site; the script runs there too.
+        allFrames: true,
         persistAcrossSessions: true,
     };
     // Updating also refreshes the file path, which can change with an extension update.

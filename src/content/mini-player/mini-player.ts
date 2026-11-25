@@ -26,6 +26,11 @@ const WHEEL_COOLDOWN_MS = 600;
 const DRAG_THRESHOLD = 70;
 /** Movement below this is a click, not a drag. */
 const CLICK_TOLERANCE = 10;
+/**
+ * Some sites take their video back when it changes (YouTube does when an ad ends). The window then takes it again,
+ * but only this often per second, so a site that fights back can never freeze the page in a loop.
+ */
+const MAX_RECLAIMS_PER_SECOND = 3;
 
 const path = (d: string): IconShape => ({ tag: 'path', attrs: { d } });
 const label10: IconShape = {
@@ -94,6 +99,7 @@ export class MiniPlayer {
         mute: HTMLElement;
         play: HTMLElement;
     } | null = null;
+    private stageWatcher: MutationObserver | null = null;
     private busy = false;
     private wheelDistance = 0;
     private wheelBlockedUntil = 0;
@@ -158,6 +164,7 @@ export class MiniPlayer {
         };
         video.removeAttribute('style');
         elements.stage.replaceChildren(video);
+        this.keepInStage(video, elements.stage);
 
         // Slide the new Reel in from the side the previous one left towards.
         const { stage } = elements;
@@ -172,6 +179,8 @@ export class MiniPlayer {
 
     /** Returns the video to its place in the site's page. */
     release(direction?: Direction): void {
+        this.stageWatcher?.disconnect();
+        this.stageWatcher = null;
         if (direction && this.elements) {
             this.elements.stage.classList.add(`leave-${direction}`);
             this.setBusy(true);
@@ -200,6 +209,25 @@ export class MiniPlayer {
         // would only leave invisible sound behind.
         if (video?.isConnected && wasPlaying) void video.play().catch(() => undefined);
     };
+
+    /** Puts the video back into the window if the site moves it away, so the window never goes empty. */
+    private keepInStage(video: HTMLVideoElement, stage: HTMLElement): void {
+        let reclaims: number[] = [];
+        const watcher = new MutationObserver(() => {
+            if (video.parentNode === stage) return;
+            const now = Date.now();
+            reclaims = [...reclaims.filter(time => now - time <= 1000), now];
+            if (reclaims.length > MAX_RECLAIMS_PER_SECOND) {
+                watcher.disconnect();
+                return;
+            }
+            stage.replaceChildren(video);
+            // Moving a video between documents pauses it.
+            void video.play().catch(() => undefined);
+        });
+        watcher.observe(stage, { childList: true });
+        this.stageWatcher = watcher;
+    }
 
     private async navigate(direction: Direction): Promise<void> {
         const { onNavigate } = this.handlers;

@@ -27,6 +27,21 @@ describe('findMainVideo', () => {
         expect(findMainVideo(document)).toBeNull();
     });
 
+    it('ignores a hover preview inside a link', () => {
+        const link = document.createElement('a');
+        link.href = '/watch?v=1';
+        document.body.append(link);
+        link.append(videoAt(0, 0, 640, 360));
+        expect(findMainVideo(document)).toBeNull();
+    });
+
+    it("ignores YouTube's home page preview", () => {
+        const container = document.createElement('ytd-video-preview');
+        document.body.append(container);
+        container.append(videoAt(0, 0, 640, 360));
+        expect(findMainVideo(document)).toBeNull();
+    });
+
     it('picks the largest video on screen', () => {
         videoAt(0, 0, 320, 180);
         const large = videoAt(0, 200, 640, 360);

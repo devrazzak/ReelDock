@@ -9,6 +9,7 @@ import { LaunchButton } from '@/content/mini-player/launch-button';
 import { overVideoCorner } from '@/content/mini-player/launch-button-placement';
 import { MiniPlayer } from '@/content/mini-player/mini-player';
 import { windowSizeFor } from '@/content/mini-player/window-size';
+import { usesNativePipByDefault } from '@/content/native-pip/default-sites';
 import { openNativePip } from '@/content/native-pip/native-pip';
 import { showNotice } from '@/content/native-pip/notice';
 import { isNativePipRemembered, rememberNativePip } from '@/content/native-pip/remembered-sites';
@@ -22,8 +23,10 @@ function isInside(rect: DOMRect, x: number, y: number): boolean {
 }
 
 function main(): void {
-    // Players in iframes are not supported yet; the main video lives in the top frame on most sites.
-    if (window.top !== window || !MiniPlayer.isSupported(window)) return;
+    // Chrome opens its Document Picture-in-Picture window only from the top frame. A video inside an iframe
+    // (most movie sites embed their player) is shown in Chrome's own window instead, so no mini player is made there.
+    const inFrame = window.top !== window;
+    if (!inFrame && !MiniPlayer.isSupported(window)) return;
 
     const root = document.documentElement;
     // The script can arrive twice: registered for the site, and injected right after the user allows it.
@@ -33,8 +36,8 @@ function main(): void {
     let video: HTMLVideoElement | null = null;
     let hovering = false;
     let openedAt = 0;
-    // Set once something else closed our window on this site: clicks then open Chrome's own window.
-    let useNativePip = false;
+    // Chrome's own window is used on some sites from the start, and on any site once something else closed ours.
+    let useNativePip = inFrame || usesNativePipByDefault(location.hostname);
     isNativePipRemembered(location.hostname).then(
         remembered => (useNativePip ||= remembered),
         () => undefined,
@@ -42,24 +45,29 @@ function main(): void {
 
     // The button only shows while the pointer is over the video, so it never sits on top of a page at rest.
     const update = (): void => {
-        button.setVisible(video !== null && hovering && !miniPlayer.isOpen);
+        button.setVisible(video !== null && hovering && !miniPlayer?.isOpen);
     };
 
-    const miniPlayer = new MiniPlayer(window, {
-        ...createVideoControls(() => miniPlayer.video),
-        onOpen: () => {
-            openedAt = Date.now();
-            update();
-        },
-        onClose: () => {
-            update();
-            if (Date.now() - openedAt >= EARLY_CLOSE_MS) return;
-            // Chrome allows one window per click, so the next click is the one that can open Chrome's own.
-            useNativePip = true;
-            void rememberNativePip(location.hostname).catch(() => undefined);
-            showNotice(document, "Another extension closed the mini player. Click again to use Chrome's own window.");
-        },
-    });
+    const miniPlayer = inFrame
+        ? null
+        : new MiniPlayer(window, {
+              ...createVideoControls(() => miniPlayer?.video ?? null),
+              onOpen: () => {
+                  openedAt = Date.now();
+                  update();
+              },
+              onClose: () => {
+                  update();
+                  if (Date.now() - openedAt >= EARLY_CLOSE_MS) return;
+                  // Chrome allows one window per click, so the next click is the one that can open Chrome's own.
+                  useNativePip = true;
+                  void rememberNativePip(location.hostname).catch(() => undefined);
+                  showNotice(
+                      document,
+                      "Another extension closed the mini player. Click again to use Chrome's own window.",
+                  );
+              },
+          });
 
     const button = new LaunchButton(
         document,
@@ -70,7 +78,7 @@ function main(): void {
                 void document.exitPictureInPicture().catch(() => undefined);
                 return;
             }
-            if (useNativePip) {
+            if (!miniPlayer || useNativePip) {
                 openNativePip(video).catch((error: unknown) => {
                     console.error("ReelDock: could not open Chrome's Picture-in-Picture", error);
                 });
