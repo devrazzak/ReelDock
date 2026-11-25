@@ -48,7 +48,7 @@ function main(): void {
         button.setVisible(video !== null && hovering && !miniPlayer?.isOpen);
     };
 
-    const miniPlayer = inFrame
+    const miniPlayer: MiniPlayer | null = inFrame
         ? null
         : new MiniPlayer(window, {
               ...createVideoControls(() => miniPlayer?.video ?? null),

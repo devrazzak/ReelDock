@@ -121,7 +121,11 @@ function createMiniPlayer(session: ReelSession, platform: PlatformAdapter): Laun
         belowAnchor(() => platform.findNavigationButton(document, 'next'), theme, window),
         () => {
             if (miniPlayer.isOpen) miniPlayer.close();
-            else void miniPlayer.open(session.getCurrentVideo()).catch(() => undefined);
+            // Chrome gives no other sign when it refuses to open the window, so the reason goes to the console.
+            else
+                miniPlayer.open(session.getCurrentVideo()).catch((error: unknown) => {
+                    console.error('ReelDock: could not open the mini player', error);
+                });
         },
         theme,
     );
